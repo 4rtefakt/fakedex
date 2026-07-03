@@ -465,9 +465,16 @@ a.move-row:hover .mv-ext { opacity: 1; }
 .shared-name { font-weight: 700; }
 .shared-types { display: flex; gap: 5px; }
 .shared-bst { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.shared-pack { color: var(--accent); font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.shared-pack a { color: var(--accent); text-decoration: none; }
-.shared-pack a:hover { text-decoration: underline; }
+.shared-pack { color: var(--accent); font-size: 12px; max-width: 200px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.shared-pack-link {
+  background: none; border: none; padding: 0; cursor: pointer; font: inherit;
+  color: var(--accent); font-size: 12px; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.shared-pack-link:hover { text-decoration: underline; }
+.shared-ext { color: var(--muted); text-decoration: none; font-size: 11px; flex: 0 0 auto; }
+.shared-ext:hover { color: var(--accent-2); }
+.shared-pack-name { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 560px) {
   .shared-row { grid-template-columns: 44px 1fr auto; }
   .shared-bst, .shared-pack { display: none; }

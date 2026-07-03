@@ -676,6 +676,40 @@
     document.body.style.overflow = '';
   }
 
+  // Load a shared pack straight into the dex via its Modrinth slug (latest version).
+  async function loadSharedPack(slug, packName) {
+    // Already loaded? Just switch to it.
+    const existing = state.sources.find(function (s) {
+      return packName && s.name.toLowerCase().indexOf(packName.toLowerCase().replace(/^\[[^\]]*\]\s*/, '')) !== -1;
+    });
+    if (existing) {
+      closeShared();
+      state.sourceFilter = existing.name;
+      el.sourceFilter.value = existing.name;
+      show('dex');
+      applyFilters();
+      return;
+    }
+    closeShared();
+    show('loading');
+    el.loadingMsg.textContent = 'Fetching ' + (packName || slug) + ' from Modrinth…';
+    try {
+      const proj = await window.Modrinth.resolveProject(slug);
+      if (!proj.versions.length) throw new Error('No downloadable versions.');
+      const v = proj.versions[0];
+      const buf = await window.Modrinth.downloadFile(v.file.url, function (p) {
+        el.loadingMsg.textContent = 'Downloading ' + v.file.filename + ' — ' + Math.round(p * 100) + '%';
+      });
+      await parseBuffer(buf, v.file.filename, proj.title + ' ' + v.number, {
+        source: 'modrinth', modrinthSlug: proj.slug, version: v.number, autoPublish: true,
+      });
+    } catch (e) {
+      console.error(e);
+      show(state.entries.length ? 'dex' : 'drop');
+      alert('Could not load "' + (packName || slug) + '": ' + e.message);
+    }
+  }
+
   function scheduleSharedSearch() {
     clearTimeout(sharedTimer);
     sharedTimer = setTimeout(doSharedSearch, 220);
@@ -706,8 +740,11 @@
     el.sharedResults.innerHTML = results.map(function (r) {
       const num = r.dex_number != null ? '#' + String(r.dex_number).padStart(3, '0') : '';
       const pack = r.modrinth_slug
-        ? '<a href="https://modrinth.com/mod/' + esc(r.modrinth_slug) + '" target="_blank" rel="noopener">' + esc(r.pack_name) + '</a>'
-        : esc(r.pack_name);
+        ? '<button class="shared-pack-link" data-slug="' + esc(r.modrinth_slug) + '" data-name="' + esc(r.pack_name) +
+            '" title="Load this pack into the dex">' + esc(r.pack_name) + '</button>' +
+          '<a class="shared-ext" href="https://modrinth.com/mod/' + esc(r.modrinth_slug) +
+            '" target="_blank" rel="noopener" title="Open on Modrinth">↗</a>'
+        : '<span class="shared-pack-name">' + esc(r.pack_name) + '</span>';
       return '<div class="shared-row">' +
         '<span class="shared-dex">' + num + '</span>' +
         '<span class="shared-name">' + esc(r.name) + '</span>' +
@@ -899,6 +936,10 @@
   el.sharedBackdrop.addEventListener('click', closeShared);
   el.sharedSearch.addEventListener('input', scheduleSharedSearch);
   el.sharedType.addEventListener('change', doSharedSearch);
+  el.sharedResults.addEventListener('click', function (e) {
+    const btn = e.target.closest('.shared-pack-link');
+    if (btn) loadSharedPack(btn.dataset.slug, btn.dataset.name);
+  });
 
   el.grid.addEventListener('click', function (e) {
     const card = e.target.closest('.card');
