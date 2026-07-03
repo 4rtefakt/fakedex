@@ -580,7 +580,26 @@
         if (p) texPaths.push(p);
       });
       texPaths.forEach(function (p) { neededTextures[p] = true; });
-      spriteById[entry.id] = { modelRef: modelRef, texturePaths: texPaths, externalModel: !geo };
+
+      // Shiny textures: the variation matching this entry's aspects + "shiny".
+      let shinyPaths = null;
+      const shinyVar = matchVariation(variations, entry.aspects.concat(['shiny']));
+      if (shinyVar && (shinyVar.aspects || []).indexOf('shiny') !== -1) {
+        const sBase = refToAssetPath(shinyVar.texture || matched.texture || baseVar.texture);
+        if (sBase) {
+          shinyPaths = [sBase];
+          (shinyVar.layers || layers).forEach(function (l) {
+            const p = l && l.texture ? refToAssetPath(l.texture) : null;
+            if (p) shinyPaths.push(p);
+          });
+          shinyPaths.forEach(function (p) { neededTextures[p] = true; });
+        }
+      }
+
+      spriteById[entry.id] = {
+        modelRef: modelRef, texturePaths: texPaths,
+        shinyTexturePaths: shinyPaths, externalModel: !geo,
+      };
     }
 
     // Second unzip pass: pull just the texture PNGs the sprites reference. A

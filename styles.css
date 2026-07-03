@@ -89,6 +89,10 @@ button.ghost {
   font-size: 14px;
 }
 button.ghost:hover { background: var(--panel-2); }
+button.ghost.active {
+  border-color: #f0b429; color: #f0b429;
+  background: color-mix(in srgb, #f0b429 16%, var(--panel));
+}
 
 main { padding: 22px; max-width: 1240px; margin: 0 auto; }
 

@@ -48,6 +48,7 @@ function refToModelPath(ref) {
     const spec = result.sprites.byId[id];
     if (!models[spec.modelRef]) continue;
     byId[id] = { modelRef: spec.modelRef, texturePaths: spec.texturePaths };
+    if (spec.shinyTexturePaths) byId[id].shinyTexturePaths = spec.shinyTexturePaths;
     usedRefs[spec.modelRef] = true;
     if (result.sprites.poses[spec.modelRef]) poses[spec.modelRef] = result.sprites.poses[spec.modelRef];
   }
