@@ -68,13 +68,15 @@ vendor/fflate.js         # unzip library (vendored, no CDN)
 vendor/three.min.js      # three.js (vendored) for bedrock model rendering
 data/base-moves.js       # bundled Showdown move metadata (generated)
 data/base-abilities.js   # bundled Showdown ability metadata (generated)
+data/base-cobblemon.js   # bundled base Cobblemon dex, loaded by default (generated)
 js/constants.js          # type/category colors, slugs, prettifiers
 js/parser.js             # archive -> normalized dex + custom move/ability data
 js/modrinth.js           # Modrinth API: resolve project, list versions, download
 js/bedrock.js            # bedrock .geo.json -> THREE.Group
 js/sprite.js             # render a model to a PNG data URL
 js/app.js                # drag/drop, grid, filters, detail drawer, tooltips, sprites
-scripts/build-base-data.js  # regenerates the bundled data/ files
+scripts/build-base-data.js  # regenerates bundled move/ability data
+scripts/build-base-dex.js   # regenerates the base Cobblemon dex
 server.js                # dev static server
 samples/                 # sample packs for testing
 ```
@@ -99,6 +101,22 @@ It's **fully client-side**: both `api.modrinth.com` and `cdn.modrinth.com` send
 `Access-Control-Allow-Origin: *`, so the browser talks to Modrinth directly (with
 a streamed download + progress bar) — no proxy or backend required. See
 `js/modrinth.js`.
+
+## Base Cobblemon dex
+
+On load, Fakédex shows the **base Cobblemon Pokédex** by default (1025 species +
+223 forms) so fakemon packs slot into a complete dex. The data is bundled at
+`data/base-cobblemon.js` (~0.4 MB gzipped, generated from the Cobblemon mod's
+species + lang — no models, so base mons are data-only cards):
+
+```
+node scripts/build-base-dex.js <path-to-Cobblemon.jar>
+```
+
+Loading a pack **adds** it as a named *source* alongside the base rather than
+replacing it. A source filter in the topbar switches between "All sources", the
+base dex, and each loaded pack; pack mons carry a small source badge so they're
+easy to spot in the combined view.
 
 ## Sprites
 

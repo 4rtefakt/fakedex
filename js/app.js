@@ -19,7 +19,9 @@
     fileInput: $('fileInput'),
     search: $('search'),
     typeFilter: $('typeFilter'),
-    resetBtn: $('resetBtn'),
+    sourceFilter: $('sourceFilter'),
+    addPackBtn: $('addPackBtn'),
+    backBtn: $('backBtn'),
     topbarActions: $('topbarActions'),
     drawer: $('drawer'),
     drawerPanel: $('drawerPanel'),
@@ -41,16 +43,23 @@
   };
 
   let state = {
-    entries: [], byId: {}, filtered: [], customMoves: {}, customAbilities: {},
+    entries: [], byId: {}, filtered: [],
+    customMoves: {}, customAbilities: {},
     sprites: { models: {}, textures: {}, byId: {} },
+    sources: [], // [{ name, count }] in load order
   };
+
+  const BASE_SOURCE = 'Cobblemon';
+
+  function slugSource(name) {
+    return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pack';
+  }
 
   // ---- sprite rendering (lazy, one at a time on a shared WebGL context) -----
 
   const spriteCache = {};     // id -> dataURL | 'failed'
   const spriteQueue = [];
   let spriteBusy = false;
-  let spriteObserver = null;
 
   function hasSprite(id) {
     return !!(window.Sprite && window.THREE && state.sprites.byId[id]);
@@ -102,24 +111,27 @@
     return String(s).replace(/["\\]/g, '\\$&');
   }
 
-  function observeSprites() {
-    if (spriteObserver) spriteObserver.disconnect();
-    if (!('IntersectionObserver' in window)) {
-      // No IO — just enqueue everything.
-      state.filtered.forEach(function (e) { enqueueSprite(e.id); });
-      return;
+  // Enqueue sprites for cards currently near the viewport. A manual check rather
+  // than IntersectionObserver so it works even when the tab hasn't painted.
+  function checkVisibleSprites() {
+    const grid = el.grid;
+    if (!grid || el.dexView.hidden) return;
+    const vh = window.innerHeight || 800;
+    const cards = grid.children;
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      const id = card.dataset && card.dataset.id;
+      if (!id || spriteCache[id] || !hasSprite(id)) continue;
+      const r = card.getBoundingClientRect();
+      if (r.bottom > -300 && r.top < vh + 300) enqueueSprite(id);
     }
-    spriteObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (ent) {
-        if (ent.isIntersecting) {
-          enqueueSprite(ent.target.dataset.id);
-          spriteObserver.unobserve(ent.target);
-        }
-      });
-    }, { root: null, rootMargin: '200px' });
-    document.querySelectorAll('.card[data-id]').forEach(function (card) {
-      if (hasSprite(card.dataset.id) && !spriteSrc(card.dataset.id)) spriteObserver.observe(card);
-    });
+  }
+
+  let spriteCheckScheduled = false;
+  function scheduleSpriteCheck() {
+    if (spriteCheckScheduled) return;
+    spriteCheckScheduled = true;
+    requestAnimationFrame(function () { spriteCheckScheduled = false; checkVisibleSprites(); });
   }
 
   // ---- move / ability resolution -----------------------------------------
@@ -203,7 +215,9 @@
         art +
         '<div class="card-name">' + esc(e.name) + '</div>' +
         '<div class="card-types">' + typeBadges(e) + '</div>' +
-        '<div class="card-bst">BST <b>' + e.statTotal + '</b></div>' +
+        '<div class="card-bst">BST <b>' + e.statTotal + '</b>' +
+          (e.source && e.source !== BASE_SOURCE ? '<span class="card-src">' + esc(e.source) + '</span>' : '') +
+        '</div>' +
       '</button>'
     );
   }
@@ -212,7 +226,7 @@
     const list = state.filtered;
     el.grid.innerHTML = list.map(cardHTML).join('');
     el.emptyMsg.hidden = list.length !== 0;
-    observeSprites();
+    checkVisibleSprites(); // synchronous (getBoundingClientRect forces layout)
   }
 
   // ---- filtering ----------------------------------------------------------
@@ -220,7 +234,9 @@
   function applyFilters() {
     const q = el.search.value.trim().toLowerCase();
     const type = el.typeFilter.value;
+    const source = state.sourceFilter || '';
     state.filtered = state.entries.filter(function (e) {
+      if (source && e.source !== source) return false;
       if (type && e.primaryType !== type && e.secondaryType !== type) return false;
       if (!q) return true;
       if (e.name.toLowerCase().includes(q)) return true;
@@ -230,6 +246,7 @@
       return false;
     });
     renderGrid();
+    updateDexMeta();
     el.footStatus.textContent = state.filtered.length + ' / ' + state.entries.length + ' shown';
   }
 
@@ -374,6 +391,7 @@
       metaRow('Gender', genderText(e.maleRatio)) +
       metaRow('Height', e.height != null ? e.height + ' m' : null) +
       metaRow('Weight', e.weight != null ? e.weight + ' kg' : null) +
+      metaRow('Source', e.source) +
       metaRow('Labels', e.labels.join(', ')) +
       '</div></div>';
 
@@ -416,17 +434,47 @@
 
   // ---- load flow ----------------------------------------------------------
 
-  function loadResult(result) {
-    state.entries = result.entries;
-    state.customMoves = result.customMoves || {};
-    state.customAbilities = result.customAbilities || {};
-    state.sprites = result.sprites || { models: {}, textures: {}, byId: {} };
-    state.byId = {};
-    for (const e of result.entries) state.byId[e.id] = e;
+  // Add a dataset (base Cobblemon or a loaded pack) as a named source. Entry ids
+  // are namespaced by source so multiple packs can coexist without collisions.
+  function addSource(name, entries, sprites, warnings) {
+    // Ensure a unique display name if the same pack is loaded twice.
+    let display = name;
+    let n = 2;
+    while (state.sources.some(function (s) { return s.name === display; })) display = name + ' (' + n++ + ')';
+    const slug = slugSource(display);
 
-    // Populate type filter from what's actually present.
+    for (const e of entries) {
+      const oid = e.id;
+      e.source = display;
+      e.uid = slug + '::' + oid;
+      e.id = e.uid; // used everywhere as the entry key
+      state.byId[e.uid] = e;
+    }
+    if (sprites) {
+      Object.assign(state.sprites.models, sprites.models || {});
+      Object.assign(state.sprites.textures, sprites.textures || {});
+      for (const oid in (sprites.byId || {})) {
+        state.sprites.byId[slug + '::' + oid] = sprites.byId[oid];
+      }
+    }
+    state.entries = state.entries.concat(entries);
+    state.entries.sort(sortEntries);
+    state.sources.push({ name: display, count: entries.length, warnings: (warnings || []).length });
+    rebuildFilters();
+    return display;
+  }
+
+  function sortEntries(a, b) {
+    const an = a.dexNumber, bn = b.dexNumber;
+    if (an != null && bn != null && an !== bn) return an - bn;
+    if (an != null && bn == null) return -1;
+    if (an == null && bn != null) return 1;
+    return a.name.localeCompare(b.name);
+  }
+
+  function rebuildFilters() {
     const types = new Set();
-    for (const e of result.entries) {
+    for (const e of state.entries) {
       if (e.primaryType) types.add(e.primaryType);
       if (e.secondaryType) types.add(e.secondaryType);
     }
@@ -434,21 +482,45 @@
       Array.from(types).sort().map(function (t) {
         return '<option value="' + t + '">' + cap(t) + '</option>';
       }).join('');
+    el.sourceFilter.innerHTML = '<option value="">All sources</option>' +
+      state.sources.map(function (s) {
+        return '<option value="' + esc(s.name) + '">' + esc(s.name) + ' (' + s.count + ')</option>';
+      }).join('');
+    el.sourceFilter.value = state.sourceFilter || '';
+  }
 
-    const m = result.meta;
-    const speciesCount = result.entries.filter(function (e) { return e.kind === 'species'; }).length;
-    const formCount = result.entries.length - speciesCount;
-    el.dexMeta.innerHTML =
-      '<strong>' + esc(m.fileName || 'pack') + '</strong> · ' +
-      speciesCount + ' species' +
-      (formCount ? ' · ' + formCount + ' forms/variants' : '') +
-      (result.warnings.length ? ' · <span class="warn">' + result.warnings.length + ' warnings</span>' : '');
+  function updateDexMeta() {
+    const shown = state.sourceFilter;
+    if (shown) {
+      const s = state.sources.find(function (x) { return x.name === shown; });
+      el.dexMeta.innerHTML = '<strong>' + esc(shown) + '</strong> · ' + (s ? s.count : 0) + ' entries' +
+        (s && s.warnings ? ' · <span class="warn">' + s.warnings + ' warnings</span>' : '');
+    } else {
+      const packs = state.sources.length - 1;
+      el.dexMeta.innerHTML = '<strong>' + state.entries.length + '</strong> entries across ' +
+        state.sources.length + ' source' + (state.sources.length === 1 ? '' : 's') +
+        (packs > 0 ? ' · ' + packs + ' pack' + (packs === 1 ? '' : 's') + ' loaded' : '');
+    }
+  }
 
+  // Load a parsed pack: add it and focus its source so the user sees it.
+  function loadResult(result, sourceName) {
+    const name = addSource(sourceName || result.meta.fileName || 'pack',
+      result.entries, result.sprites, result.warnings);
+    // Merge custom move/ability data (later packs override — fine for display).
+    Object.assign(state.customMoves, result.customMoves || {});
+    Object.assign(state.customAbilities, result.customAbilities || {});
+    state.sourceFilter = name;
+    el.sourceFilter.value = name;
     show('dex');
     applyFilters();
   }
 
-  async function parseBuffer(buf, name) {
+  function cleanSourceName(name) {
+    return String(name).replace(/\.(jar|zip)$/i, '').trim() || 'pack';
+  }
+
+  async function parseBuffer(buf, name, sourceName) {
     show('loading');
     el.loadingMsg.textContent = 'Parsing species…';
     try {
@@ -459,7 +531,7 @@
           'Make sure it contains data/<namespace>/species/…');
         return;
       }
-      loadResult(result);
+      loadResult(result, cleanSourceName(sourceName || name));
     } catch (err) {
       console.error(err);
       show('drop');
@@ -552,7 +624,8 @@
         el.mrBar.style.width = pct + '%';
         el.mrPct.textContent = pct + '%';
       });
-      await parseBuffer(buf, v.file.filename);
+      const srcName = mrResolved ? mrResolved.title + ' ' + v.number : v.file.filename;
+      await parseBuffer(buf, v.file.filename, srcName);
     } catch (err) {
       console.error(err);
       show('drop');
@@ -600,17 +673,24 @@
     handleFile(e.target.files && e.target.files[0]);
   });
 
+  window.addEventListener('scroll', scheduleSpriteCheck, { passive: true });
+  window.addEventListener('resize', scheduleSpriteCheck, { passive: true });
+
   el.search.addEventListener('input', applyFilters);
   el.typeFilter.addEventListener('change', applyFilters);
-  el.resetBtn.addEventListener('click', function () {
+  el.sourceFilter.addEventListener('change', function () {
+    state.sourceFilter = el.sourceFilter.value;
+    applyFilters();
+  });
+  el.addPackBtn.addEventListener('click', function () {
     el.fileInput.value = '';
-    el.search.value = '';
-    el.typeFilter.value = '';
     el.mrPanel.hidden = true;
     el.mrProgress.hidden = true;
     mrShowError('');
+    el.backBtn.hidden = state.entries.length === 0;
     show('drop');
   });
+  el.backBtn.addEventListener('click', function () { show('dex'); });
 
   el.grid.addEventListener('click', function (e) {
     const card = e.target.closest('.card');
@@ -668,4 +748,24 @@
   document.addEventListener('mouseout', function (e) {
     if (e.target.closest('[data-tip-name]')) el.tooltip.hidden = true;
   });
+
+  // ---- init: show the base Cobblemon dex by default -----------------------
+
+  function init() {
+    const base = window.BASE_COBBLEMON;
+    if (base && base.entries && base.entries.length) {
+      // Clone entries so addSource can namespace ids without mutating the bundle
+      // (matters if the page re-inits).
+      const entries = base.entries.map(function (e) { return Object.assign({}, e); });
+      addSource(BASE_SOURCE, entries, null, null);
+      state.sourceFilter = '';
+      el.sourceFilter.value = '';
+      show('dex');
+      applyFilters();
+    } else {
+      show('drop'); // no base bundled — fall back to the landing screen
+    }
+  }
+
+  init();
 })();

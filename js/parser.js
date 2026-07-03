@@ -25,12 +25,13 @@
     });
   }
 
-  function isDataFile(n) {
+  function isDataFile(n, includeSprites) {
     return (
       (/(^|\/)data\/[^/]+\/species(_additions)?\//.test(n) && n.endsWith('.json')) ||
       /(^|\/)data\/[^/]+\/moves\/.+\.js(on)?$/.test(n) ||
       /(^|\/)assets\/[^/]+\/lang\/en_us\.json$/.test(n) ||
-      /(^|\/)assets\/[^/]+\/bedrock\/pokemon\/(models|resolvers|posers)\/.+\.json$/.test(n)
+      (includeSprites &&
+        /(^|\/)assets\/[^/]+\/bedrock\/pokemon\/(models|resolvers|posers)\/.+\.json$/.test(n))
     );
   }
 
@@ -276,8 +277,10 @@
 
   // ---- top level: archive -> { entries, meta, warnings } ------------------
 
-  async function parseArchive(arrayBuffer, fileName) {
-    const files = await unzip(arrayBuffer, isDataFile);
+  async function parseArchive(arrayBuffer, fileName, opts) {
+    opts = opts || {};
+    const wantSprites = !opts.skipSprites;
+    const files = await unzip(arrayBuffer, function (n) { return isDataFile(n, wantSprites); });
     const lang = collectLang(files);
     const entries = [];
     const warnings = [];
@@ -375,10 +378,10 @@
 
     // Resolve a renderable model + textures for each entry, where the pack ships
     // one. (Forms of vanilla mons often reuse base-Cobblemon models we don't have.)
-    const sprIdx = buildSpriteIndex(files);
+    const sprIdx = wantSprites ? buildSpriteIndex(files) : { modelsByRef: {}, resolversBySpecies: {} };
     const spriteById = {};
     const neededTextures = {};
-    for (const entry of entries) {
+    for (const entry of (wantSprites ? entries : [])) {
       const variations = sprIdx.resolversBySpecies[entry.speciesName];
       if (!variations || !variations.length) continue;
       const baseVar = variations.find(function (v) { return !(v.aspects && v.aspects.length); }) || variations[0];
