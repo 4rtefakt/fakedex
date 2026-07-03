@@ -49,6 +49,46 @@
     );
   }
 
+  // All formats of one release (fabric jar, neoforge jar, datapack zip…) carry
+  // the same species data, so the user only needs to pick a release, not a
+  // format. Group by version number + game versions, and auto-pick the smallest
+  // downloadable format (datapacks are smallest and parse identically).
+  function baseNumber(v) {
+    return (String(v.number || '').split('+')[0].trim()) || v.number || v.name || '?';
+  }
+
+  function groupReleases(raw) {
+    const map = {};
+    const order = [];
+    for (const v of raw) {
+      const key = baseNumber(v) + '|' + v.gameVersions.slice().sort().join(',');
+      if (!map[key]) {
+        map[key] = { key: key, number: baseNumber(v), name: v.name,
+          gameVersions: v.gameVersions, date: v.date, options: [] };
+        order.push(key);
+      }
+      const g = map[key];
+      g.options.push({ loaders: v.loaders, file: v.file });
+      if (v.date > g.date) g.date = v.date;
+    }
+    return order.map(function (k) {
+      const g = map[k];
+      const opts = g.options.slice().sort(function (a, b) {
+        const ad = a.loaders.indexOf('datapack') !== -1 ? 0 : 1;
+        const bd = b.loaders.indexOf('datapack') !== -1 ? 0 : 1;
+        if (ad !== bd) return ad - bd;
+        return (a.file.size || 0) - (b.file.size || 0);
+      });
+      const chosen = opts[0];
+      return {
+        key: g.key, number: g.number, name: g.name,
+        gameVersions: g.gameVersions, date: g.date,
+        loaders: chosen.loaders, file: chosen.file,
+        formatCount: g.options.length,
+      };
+    }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  }
+
   // Resolve a project to { slug, title, iconUrl, projectType, versions[] }.
   async function resolveProject(input) {
     const slug = parseSlug(input);
@@ -57,7 +97,7 @@
       getJSON(API + '/project/' + encodeURIComponent(slug)),
       getJSON(API + '/project/' + encodeURIComponent(slug) + '/version'),
     ]);
-    const vs = versions
+    const raw = versions
       .map(function (v) {
         const file = pickFile(v);
         if (!file) return null;
@@ -71,15 +111,14 @@
           file: { filename: file.filename, size: file.size || 0, url: file.url },
         };
       })
-      .filter(Boolean)
-      .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-    if (!vs.length) throw new Error('No downloadable files found for this project.');
+      .filter(Boolean);
+    if (!raw.length) throw new Error('No downloadable files found for this project.');
     return {
       slug: proj.slug,
       title: proj.title,
       iconUrl: proj.icon_url || null,
       projectType: proj.project_type,
-      versions: vs,
+      versions: groupReleases(raw),
     };
   }
 

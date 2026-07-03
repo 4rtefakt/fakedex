@@ -391,7 +391,6 @@
 
   function versionLabel(v) {
     const bits = [v.number || v.name];
-    if (v.loaders.length) bits.push(v.loaders.join('/'));
     if (v.gameVersions.length) bits.push(v.gameVersions.join(', '));
     if (v.file.size) bits.push(fmtBytes(v.file.size));
     return bits.join(' · ');
