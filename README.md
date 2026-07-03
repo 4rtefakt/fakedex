@@ -106,6 +106,14 @@ It's **fully client-side**: both `api.modrinth.com` and `cdn.modrinth.com` send
 a streamed download + progress bar) — no proxy or backend required. See
 `js/modrinth.js`.
 
+## Spawn conditions
+
+Each mon's detail view shows where it spawns, parsed from
+`data/<ns>/spawn_pool_world/`: rarity bucket (common → ultra-rare, colour-coded),
+level range, context (grounded/submerged/fishing), biomes, and conditions like
+time of day, weather, sky-light, Y range, moon phase, and required nearby
+blocks/structures. Bundled for base mons and parsed live for packs.
+
 ## Base Cobblemon dex
 
 On load, Fakédex shows the **base Cobblemon Pokédex** by default (1025 species +

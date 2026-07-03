@@ -28,6 +28,7 @@
   function isDataFile(n, includeSprites) {
     return (
       (/(^|\/)data\/[^/]+\/species(_additions)?\//.test(n) && n.endsWith('.json')) ||
+      /(^|\/)data\/[^/]+\/spawn_pool_world\/.+\.json$/.test(n) ||
       /(^|\/)data\/[^/]+\/moves\/.+\.js(on)?$/.test(n) ||
       /(^|\/)assets\/[^/]+\/lang\/en_us\.json$/.test(n) ||
       (includeSprites &&
@@ -378,6 +379,67 @@
     return Object.keys(pose).length ? pose : null;
   }
 
+  // ---- spawn conditions (data/<ns>/spawn_pool_world) ----------------------
+
+  function titleCase(s) {
+    return String(s).replace(/[_-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }).trim();
+  }
+  function prettyBiome(tag) {
+    return titleCase(String(tag).replace(/^#/, '').split(':').pop().replace(/^is_/, ''));
+  }
+  function prettyId(id) {
+    return titleCase(String(id).replace(/^#/, '').split(':').pop());
+  }
+  function prettyTime(t) {
+    if (!t || /^\d/.test(t)) return null;
+    const s = String(t).toLowerCase();
+    return s === 'any' ? null : titleCase(s);
+  }
+
+  function normalizeSpawn(s) {
+    const cond = s.condition || {};
+    const pk = String(s.pokemon || '').trim().split(/\s+/);
+    const name = (pk[0] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!name) return null;
+    const range = function (min, max) {
+      if (min == null && max == null) return null;
+      return (min != null ? min : '') + '–' + (max != null ? max : '');
+    };
+    return {
+      name: name,
+      aspects: pk.slice(1).filter(Boolean),
+      rarity: s.bucket || null,
+      level: s.level || null,
+      context: s.spawnablePositionType || s.context || null,
+      biomes: (cond.biomes || []).map(prettyBiome),
+      time: prettyTime(cond.timeRange),
+      weather: cond.isThundering === true ? 'Thunder' : (cond.isRaining === true ? 'Rain' : (cond.isRaining === false ? 'Clear' : null)),
+      canSeeSky: cond.canSeeSky === true ? 'Open sky' : (cond.canSeeSky === false ? 'Underground' : null),
+      light: range(cond.minSkyLight, cond.maxSkyLight),
+      y: range(cond.minY, cond.maxY),
+      moon: cond.moonPhase != null ? cond.moonPhase : null,
+      structures: (Array.isArray(cond.structures) ? cond.structures : (cond.structures ? [cond.structures] : [])).map(prettyId),
+      nearbyBlocks: (cond.neededNearbyBlocks || []).map(prettyId),
+      baseBlocks: (cond.neededBaseBlocks || []).map(prettyId),
+    };
+  }
+
+  function collectSpawns(files) {
+    const byName = {};
+    for (const path in files) {
+      if (!/(^|\/)data\/[^/]+\/spawn_pool_world\/.+\.json$/.test(path)) continue;
+      try {
+        const j = lenientJson(text(files[path]));
+        (j.spawns || []).forEach(function (s) {
+          const n = normalizeSpawn(s);
+          if (!n) return;
+          (byName[n.name] = byName[n.name] || []).push(n);
+        });
+      } catch (e) { /* skip bad spawn file */ }
+    }
+    return byName;
+  }
+
   // ---- top level: archive -> { entries, meta, warnings } ------------------
 
   async function parseArchive(arrayBuffer, fileName, opts) {
@@ -468,6 +530,14 @@
           }
         }
       }
+    }
+
+    // Attach spawn conditions (matched by species name).
+    const spawnsByName = collectSpawns(files);
+    let spawnCount = 0;
+    for (const entry of entries) {
+      const sp = spawnsByName[entry.speciesName];
+      if (sp && sp.length) { entry.spawns = sp; spawnCount += sp.length; }
     }
 
     // Stable ordering: dex number first (nulls last), then name.

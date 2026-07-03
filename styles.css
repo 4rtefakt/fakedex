@@ -387,6 +387,30 @@ a.move-row:hover .mv-ext { opacity: 1; }
 
 .muted { color: var(--muted); }
 
+/* ---- spawns ---- */
+.spawn {
+  border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 10px;
+  background: var(--panel);
+}
+.spawn-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.rarity {
+  font-size: 10px; font-weight: 800; color: #10131a; padding: 3px 9px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.spawn-lv { font-size: 12px; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.spawn-ctx {
+  font-size: 11px; color: var(--accent-2); border: 1px solid var(--accent-2);
+  padding: 1px 8px; border-radius: 999px; text-transform: capitalize;
+}
+.biomes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.biome {
+  font-size: 12px; background: var(--panel-2); border: 1px solid var(--line);
+  padding: 3px 9px; border-radius: 7px;
+}
+.spawn-conds { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.cond { font-size: 12px; color: var(--muted); }
+.cond b { color: var(--text); font-weight: 600; margin-left: 2px; }
+
 /* ---- publish button in dex meta ---- */
 .pub-btn {
   background: color-mix(in srgb, var(--accent) 20%, var(--panel));

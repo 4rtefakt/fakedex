@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const { typeColor, STAT_LABELS, CATEGORY, prettify, cap, pokemondbSlug } = window.DexConst;
+  const { typeColor, STAT_LABELS, CATEGORY, rarityColor, prettify, cap, pokemondbSlug } = window.DexConst;
   const BASE_MOVES = window.BASE_MOVES || {};
   const BASE_ABILITIES = window.BASE_ABILITIES || {};
   const $ = function (id) { return document.getElementById(id); };
@@ -362,6 +362,45 @@
     return parts.join('') || '<p class="muted">No moves listed.</p>';
   }
 
+  function spawnCond(label, val) {
+    return '<span class="cond">' + esc(label) + ' <b>' + esc(val) + '</b></span>';
+  }
+
+  function spawnsSection(spawns) {
+    if (!spawns || !spawns.length) return '';
+    const rows = spawns.map(function (s) {
+      const rar = s.rarity
+        ? '<span class="rarity" style="background:' + rarityColor(s.rarity) + '">' + esc(cap(s.rarity)) + '</span>'
+        : '';
+      const head = [];
+      if (s.level) head.push('<span class="spawn-lv">Lv ' + esc(s.level) + '</span>');
+      if (s.context && s.context !== 'grounded') head.push('<span class="spawn-ctx">' + esc(cap(s.context)) + '</span>');
+      if (s.aspects && s.aspects.length) {
+        s.aspects.filter(function (a) { return !/=/.test(a); })
+          .forEach(function (a) { head.push('<span class="spawn-ctx">' + esc(cap(a)) + '</span>'); });
+      }
+      const biomes = s.biomes.length
+        ? '<div class="biomes">' + s.biomes.map(function (b) { return '<span class="biome">' + esc(b) + '</span>'; }).join('') + '</div>'
+        : '';
+      const conds = [];
+      if (s.time) conds.push(spawnCond('Time', s.time));
+      if (s.weather) conds.push(spawnCond('Weather', s.weather));
+      if (s.canSeeSky) conds.push(spawnCond('', s.canSeeSky));
+      if (s.light) conds.push(spawnCond('Sky light', s.light));
+      if (s.y) conds.push(spawnCond('Y', s.y));
+      if (s.moon != null) conds.push(spawnCond('Moon phase', s.moon));
+      s.structures.forEach(function (x) { conds.push(spawnCond('Structure', x)); });
+      s.nearbyBlocks.forEach(function (x) { conds.push(spawnCond('Near', x)); });
+      s.baseBlocks.forEach(function (x) { conds.push(spawnCond('On', x)); });
+      const condHtml = conds.length ? '<div class="spawn-conds">' + conds.join('') + '</div>' : '';
+      return '<div class="spawn">' +
+        '<div class="spawn-top">' + rar + head.join('') + '</div>' +
+        biomes + condHtml +
+      '</div>';
+    }).join('');
+    return '<div class="d-block"><h3>Spawns</h3>' + rows + '</div>';
+  }
+
   function abilityHTML(a) {
     const info = resolveAbility(a.name);
     const attrs =
@@ -437,8 +476,9 @@
       : '';
 
     const moves = '<div class="d-block"><h3>Moves</h3>' + movesSection(e.moves) + '</div>';
+    const spawns = spawnsSection(e.spawns);
 
-    return header + '<div class="d-body">' + desc + abilities + eggs + stats + meta + forms + moves + '</div>';
+    return header + '<div class="d-body">' + desc + abilities + eggs + spawns + stats + meta + forms + moves + '</div>';
   }
 
   function openDrawer(id) {

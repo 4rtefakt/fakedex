@@ -34,6 +34,15 @@
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   }
 
+  // Spawn rarity bucket → colour.
+  const RARITY = {
+    common: '#63bc5a',
+    uncommon: '#4d90d5',
+    rare: '#ab6ac8',
+    'ultra-rare': '#f0b429',
+  };
+  function rarityColor(b) { return (b && RARITY[b]) || '#6b7280'; }
+
   // Damage category → colour + short label.
   const CATEGORY = {
     Physical: { color: '#C92112', abbr: 'PHY' },
@@ -54,6 +63,7 @@
     typeColor: typeColor,
     STAT_LABELS: STAT_LABELS,
     CATEGORY: CATEGORY,
+    rarityColor: rarityColor,
     prettify: prettify,
     cap: cap,
     pokemondbSlug: pokemondbSlug,
