@@ -219,6 +219,9 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
   min-height: 128px;
   display: flex;
   flex-direction: column;
+  /* Virtualization: skip rendering off-screen cards (smooth on the 1200+ dex). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 .card:hover { transform: translateY(-3px); border-color: var(--accent-2); box-shadow: var(--shadow); }
 .card:hover .card-sprite.loaded { transform: scale(1.06); }
