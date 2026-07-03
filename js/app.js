@@ -26,6 +26,18 @@
     drawerBackdrop: $('drawerBackdrop'),
     footStatus: $('footStatus'),
     tooltip: $('tooltip'),
+    mrForm: $('mrForm'),
+    mrUrl: $('mrUrl'),
+    mrFetch: $('mrFetch'),
+    mrError: $('mrError'),
+    mrPanel: $('mrPanel'),
+    mrIcon: $('mrIcon'),
+    mrTitle: $('mrTitle'),
+    mrVersion: $('mrVersion'),
+    mrLoad: $('mrLoad'),
+    mrProgress: $('mrProgress'),
+    mrBar: $('mrBar'),
+    mrPct: $('mrPct'),
   };
 
   let state = { entries: [], byId: {}, filtered: [], customMoves: {}, customAbilities: {} };
@@ -328,17 +340,14 @@
     applyFilters();
   }
 
-  async function handleFile(file) {
-    if (!file) return;
+  async function parseBuffer(buf, name) {
     show('loading');
-    el.loadingMsg.textContent = 'Reading ' + file.name + '…';
+    el.loadingMsg.textContent = 'Parsing species…';
     try {
-      const buf = await file.arrayBuffer();
-      el.loadingMsg.textContent = 'Parsing species…';
-      const result = await window.CobblemonParser.parseArchive(buf, file.name);
+      const result = await window.CobblemonParser.parseArchive(buf, name);
       if (!result.entries.length) {
         show('drop');
-        alert('No Cobblemon species found in "' + file.name + '".\n' +
+        alert('No Cobblemon species found in "' + name + '".\n' +
           'Make sure it contains data/<namespace>/species/…');
         return;
       }
@@ -346,11 +355,113 @@
     } catch (err) {
       console.error(err);
       show('drop');
+      alert('Could not read "' + name + '": ' + err.message);
+    }
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    show('loading');
+    el.loadingMsg.textContent = 'Reading ' + file.name + '…';
+    try {
+      const buf = await file.arrayBuffer();
+      await parseBuffer(buf, file.name);
+    } catch (err) {
+      console.error(err);
+      show('drop');
       alert('Could not read "' + file.name + '": ' + err.message);
     }
   }
 
+  // ---- Modrinth ------------------------------------------------------------
+
+  let mrResolved = null;
+
+  function fmtBytes(n) {
+    if (!n) return '';
+    if (n >= 1e6) return (n / 1048576).toFixed(1) + ' MB';
+    if (n >= 1e3) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+
+  function mrShowError(msg) {
+    el.mrError.textContent = msg;
+    el.mrError.hidden = !msg;
+  }
+
+  function versionLabel(v) {
+    const bits = [v.number || v.name];
+    if (v.loaders.length) bits.push(v.loaders.join('/'));
+    if (v.gameVersions.length) bits.push(v.gameVersions.join(', '));
+    if (v.file.size) bits.push(fmtBytes(v.file.size));
+    return bits.join(' · ');
+  }
+
+  function updateLoadBtn() {
+    const v = mrResolved && mrResolved.versions[el.mrVersion.selectedIndex];
+    el.mrLoad.textContent = v && v.file.size ? 'Load (' + fmtBytes(v.file.size) + ')' : 'Load';
+  }
+
+  async function mrFetchProject() {
+    const q = el.mrUrl.value.trim();
+    if (!q) return;
+    mrShowError('');
+    el.mrPanel.hidden = true;
+    el.mrFetch.disabled = true;
+    el.mrFetch.textContent = 'Fetching…';
+    try {
+      const proj = await window.Modrinth.resolveProject(q);
+      mrResolved = proj;
+      if (proj.iconUrl) { el.mrIcon.src = proj.iconUrl; el.mrIcon.hidden = false; }
+      else el.mrIcon.hidden = true;
+      el.mrTitle.textContent = proj.title;
+      el.mrTitle.href = 'https://modrinth.com/' + proj.projectType + '/' + proj.slug;
+      el.mrVersion.innerHTML = proj.versions.map(function (v, i) {
+        return '<option value="' + i + '">' + esc(versionLabel(v)) + '</option>';
+      }).join('');
+      el.mrVersion.selectedIndex = 0;
+      updateLoadBtn();
+      el.mrPanel.hidden = false;
+    } catch (err) {
+      mrShowError(err.message || 'Could not load that project.');
+    } finally {
+      el.mrFetch.disabled = false;
+      el.mrFetch.textContent = 'Fetch';
+    }
+  }
+
+  async function mrLoadVersion() {
+    const v = mrResolved && mrResolved.versions[el.mrVersion.selectedIndex];
+    if (!v) return;
+    mrShowError('');
+    el.mrLoad.disabled = true;
+    el.mrVersion.disabled = true;
+    el.mrProgress.hidden = false;
+    el.mrBar.style.width = '0%';
+    el.mrPct.textContent = '0%';
+    try {
+      const buf = await window.Modrinth.downloadFile(v.file.url, function (p) {
+        const pct = Math.round(p * 100);
+        el.mrBar.style.width = pct + '%';
+        el.mrPct.textContent = pct + '%';
+      });
+      await parseBuffer(buf, v.file.filename);
+    } catch (err) {
+      console.error(err);
+      show('drop');
+      mrShowError(err.message || 'Download failed.');
+    } finally {
+      el.mrLoad.disabled = false;
+      el.mrVersion.disabled = false;
+      el.mrProgress.hidden = true;
+    }
+  }
+
   // ---- events -------------------------------------------------------------
+
+  el.mrForm.addEventListener('submit', function (e) { e.preventDefault(); mrFetchProject(); });
+  el.mrVersion.addEventListener('change', updateLoadBtn);
+  el.mrLoad.addEventListener('click', mrLoadVersion);
 
   ['dragenter', 'dragover'].forEach(function (ev) {
     el.dropzone.addEventListener(ev, function (e) {
@@ -388,6 +499,9 @@
     el.fileInput.value = '';
     el.search.value = '';
     el.typeFilter.value = '';
+    el.mrPanel.hidden = true;
+    el.mrProgress.hidden = true;
+    mrShowError('');
     show('drop');
   });
 

@@ -40,8 +40,35 @@
           </label>
         </div>
       </div>
+      <div class="or-sep"><span>or load straight from Modrinth</span></div>
+
+      <div class="modrinth">
+        <form id="mrForm" class="mr-input-row">
+          <input id="mrUrl" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Paste a Modrinth mod URL or slug (e.g. lasers-fakemon-pack)" />
+          <button id="mrFetch" type="submit">Fetch</button>
+        </form>
+        <p id="mrError" class="mr-error" hidden></p>
+
+        <div id="mrPanel" class="mr-panel" hidden>
+          <img id="mrIcon" class="mr-icon" alt="" />
+          <div class="mr-info">
+            <a id="mrTitle" class="mr-title" target="_blank" rel="noopener"></a>
+            <div class="mr-controls">
+              <select id="mrVersion" aria-label="Choose a version"></select>
+              <button id="mrLoad" class="mr-load" type="button">Load</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="mrProgress" class="mr-progress" hidden>
+          <div class="mr-track"><div id="mrBar" class="mr-bar"></div></div>
+          <span id="mrPct" class="mr-pct"></span>
+        </div>
+      </div>
+
       <p class="hint">
-        Try <strong>Laser's Fakemon Pack</strong> — the <code>.jar</code> or the datapack <code>.zip</code>.
+        Everything runs in your browser — Modrinth files download directly to you, nothing is uploaded.
       </p>
     </section>
 
@@ -77,6 +104,7 @@
   <script src="data/base-abilities.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/parser.js"></script>
+  <script src="js/modrinth.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

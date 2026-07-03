@@ -69,6 +69,7 @@ data/base-moves.js       # bundled Showdown move metadata (generated)
 data/base-abilities.js   # bundled Showdown ability metadata (generated)
 js/constants.js          # type/category colors, slugs, prettifiers
 js/parser.js             # archive -> normalized dex + custom move/ability data
+js/modrinth.js           # Modrinth API: resolve project, list versions, download
 js/app.js                # drag/drop, grid, filters, detail drawer, tooltips
 scripts/build-base-data.js  # regenerates the bundled data/ files
 server.js                # dev static server
@@ -86,15 +87,24 @@ Static site — hosted on **Cloudflare Pages**, connected to this GitHub repo
 `_headers` sets long-lived immutable caching on the versioned `vendor/` + `data/`
 bundles and revalidation on the app code.
 
+## Modrinth integration
+
+Paste a Modrinth mod URL (or bare slug) and Fakédex resolves the project, lists
+every version, and downloads + scans the one you pick — no manual download.
+
+It's **fully client-side**: both `api.modrinth.com` and `cdn.modrinth.com` send
+`Access-Control-Allow-Origin: *`, so the browser talks to Modrinth directly (with
+a streamed download + progress bar) — no proxy or backend required. See
+`js/modrinth.js`.
+
 ## Roadmap
 
-A fully local, single-pack viewer with resolved move/ability data. Planned next:
+Done: local viewer, resolved move/ability data, Cloudflare Pages hosting,
+Modrinth integration. Planned next:
 
 - **Sprites.** Packs ship 3D bedrock models, not flat sprites, so rendering a
   portrait means either rendering the model or generating thumbnails offline.
-- **Hosting** on Cloudflare Pages.
 - **Shared database.** Cache parsed results keyed by a mod hash/signature so the
   same pack version isn't re-parsed by everyone; build a global index of every
-  fakemon and which pack it belongs to.
-- **Modrinth integration.** Paste a Modrinth mod URL and have it fetched +
-  scanned automatically.
+  fakemon and which pack it belongs to. (This is the point where a Cloudflare
+  Pages Function + D1/KV finally earns its keep.)
