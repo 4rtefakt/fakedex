@@ -57,6 +57,7 @@
     sources: [], // [{ name, count }] in load order
     sourceFilter: '',
     publishable: {}, // sourceName -> { payload, status }
+    sourceSlug: {},  // sourceName -> modrinth slug (for deep links)
     sharedAvailable: false,
   };
 
@@ -436,6 +437,7 @@
       '<div class="d-head" style="background:linear-gradient(135deg,' +
         typeColor(e.primaryType) + ',' + typeColor(e.secondaryType || e.primaryType) + ')">' +
         '<button class="d-close" id="drawerClose" aria-label="Close">✕</button>' +
+        '<button class="d-link" id="drawerLink" title="Copy link to this Pokémon" aria-label="Copy link">🔗</button>' +
         art +
         '<div class="d-dexno">' + num + '</div>' +
         '<div class="d-name">' + esc(e.name) + '</div>' +
@@ -483,6 +485,43 @@
     return header + '<div class="d-body">' + desc + abilities + eggs + spawns + stats + meta + forms + moves + '</div>';
   }
 
+  // ---- deep links (#mon=<id>&pack=<slug>) ---------------------------------
+
+  function monHash(e) {
+    const slug = state.sourceSlug[e.source];
+    return '#mon=' + encodeURIComponent(e._oid || e.id) + (slug ? '&pack=' + encodeURIComponent(slug) : '');
+  }
+  function setHash(h) {
+    // replaceState avoids firing hashchange (which would re-route).
+    try { history.replaceState(null, '', h || (location.pathname + location.search)); }
+    catch (err) { /* ignore */ }
+  }
+
+  function openMonById(oid, sourceName) {
+    const norm = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); };
+    const key = norm(oid);
+    const match = function (e) { return norm(e._oid || e.id) === key || norm(e.name) === key; };
+    let e = sourceName && state.entries.find(function (x) { return x.source === sourceName && match(x); });
+    if (!e) e = state.entries.find(function (x) { return x.source === BASE_SOURCE && match(x); });
+    if (!e) e = state.entries.find(match);
+    if (e) { openDrawer(e.uid); return true; }
+    return false;
+  }
+
+  async function applyHashRoute() {
+    const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const mon = p.get('mon');
+    if (!mon) return;
+    const pack = p.get('pack');
+    if (pack) {
+      const loadedName = Object.keys(state.sourceSlug).find(function (n) { return state.sourceSlug[n] === pack; });
+      if (loadedName) { openMonById(mon, loadedName); return; }
+      await loadSharedPack(pack, null, mon);
+    } else {
+      openMonById(mon);
+    }
+  }
+
   function openDrawer(id) {
     const e = state.byId[id];
     if (!e) return;
@@ -490,8 +529,15 @@
     el.drawer.hidden = false;
     document.body.style.overflow = 'hidden';
     el.drawerPanel.scrollTop = 0;
+    setHash(monHash(e));
     const close = $('drawerClose');
     if (close) close.addEventListener('click', closeDrawer);
+    const link = $('drawerLink');
+    if (link) link.addEventListener('click', function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(location.href).catch(function () {});
+      link.textContent = '✓';
+      setTimeout(function () { link.textContent = '🔗'; }, 1200);
+    });
     // Prioritise the open mon's sprite if it isn't ready yet.
     if (hasSprite(id) && !spriteSrc(id)) {
       if (spriteCache[id] === 'pending') {
@@ -507,6 +553,7 @@
   function closeDrawer() {
     el.drawer.hidden = true;
     document.body.style.overflow = '';
+    setHash('');
   }
 
   // ---- load flow ----------------------------------------------------------
@@ -610,8 +657,17 @@
     return name;
   }
 
+  // Strip leading/trailing "[tag]" chunks, e.g. "[Cobblemon] Pokemon X" -> "Pokemon X".
+  function stripTags(name) {
+    return String(name)
+      .replace(/^\s*(?:\[[^\]]*\]\s*)+/, '')
+      .replace(/(?:\s*\[[^\]]*\])+\s*$/, '')
+      .trim();
+  }
+
   function cleanSourceName(name) {
-    return String(name).replace(/\.(jar|zip)$/i, '').trim() || 'pack';
+    const cleaned = stripTags(String(name).replace(/\.(jar|zip)$/i, '').trim());
+    return cleaned || stripTags(String(name)) || 'pack';
   }
 
   async function parseBuffer(buf, name, sourceName, opts) {
@@ -627,7 +683,9 @@
         return;
       }
       const loaded = loadResult(result, cleanSourceName(sourceName || name));
+      if (opts.modrinthSlug) state.sourceSlug[loaded] = opts.modrinthSlug;
       preparePublish(buf, loaded, opts).catch(function (e) { console.warn('publish prep', e); });
+      return loaded;
     } catch (err) {
       console.error(err);
       show('drop');
@@ -676,18 +734,18 @@
     document.body.style.overflow = '';
   }
 
-  // Load a shared pack straight into the dex via its Modrinth slug (latest version).
-  async function loadSharedPack(slug, packName) {
-    // Already loaded? Just switch to it.
-    const existing = state.sources.find(function (s) {
-      return packName && s.name.toLowerCase().indexOf(packName.toLowerCase().replace(/^\[[^\]]*\]\s*/, '')) !== -1;
-    });
-    if (existing) {
+  // Load a shared pack straight into the dex via its Modrinth slug (latest
+  // version). `openMonId` (optional) opens that mon once loaded (deep links).
+  async function loadSharedPack(slug, packName, openMonId) {
+    // Already loaded (by slug)? Just switch to it.
+    const loadedName = Object.keys(state.sourceSlug).find(function (n) { return state.sourceSlug[n] === slug; });
+    if (loadedName) {
       closeShared();
-      state.sourceFilter = existing.name;
-      el.sourceFilter.value = existing.name;
+      state.sourceFilter = loadedName;
+      el.sourceFilter.value = loadedName;
       show('dex');
       applyFilters();
+      if (openMonId) openMonById(openMonId, loadedName);
       return;
     }
     closeShared();
@@ -700,9 +758,10 @@
       const buf = await window.Modrinth.downloadFile(v.file.url, function (p) {
         el.loadingMsg.textContent = 'Downloading ' + v.file.filename + ' — ' + Math.round(p * 100) + '%';
       });
-      await parseBuffer(buf, v.file.filename, proj.title + ' ' + v.number, {
+      const loaded = await parseBuffer(buf, v.file.filename, proj.title + ' ' + v.number, {
         source: 'modrinth', modrinthSlug: proj.slug, version: v.number, autoPublish: true,
       });
+      if (openMonId && loaded) openMonById(openMonId, loaded);
     } catch (e) {
       console.error(e);
       show(state.entries.length ? 'dex' : 'drop');
@@ -739,12 +798,13 @@
     }
     el.sharedResults.innerHTML = results.map(function (r) {
       const num = r.dex_number != null ? '#' + String(r.dex_number).padStart(3, '0') : '';
+      const packLabel = stripTags(r.pack_name);
       const pack = r.modrinth_slug
-        ? '<button class="shared-pack-link" data-slug="' + esc(r.modrinth_slug) + '" data-name="' + esc(r.pack_name) +
-            '" title="Load this pack into the dex">' + esc(r.pack_name) + '</button>' +
+        ? '<button class="shared-pack-link" data-slug="' + esc(r.modrinth_slug) + '" data-name="' + esc(packLabel) +
+            '" title="Load this pack into the dex">' + esc(packLabel) + '</button>' +
           '<a class="shared-ext" href="https://modrinth.com/mod/' + esc(r.modrinth_slug) +
             '" target="_blank" rel="noopener" title="Open on Modrinth">↗</a>'
-        : '<span class="shared-pack-name">' + esc(r.pack_name) + '</span>';
+        : '<span class="shared-pack-name">' + esc(packLabel) + '</span>';
       return '<div class="shared-row">' +
         '<span class="shared-dex">' + num + '</span>' +
         '<span class="shared-name">' + esc(r.name) + '</span>' +
@@ -955,6 +1015,8 @@
     if (!el.drawer.hidden) closeDrawer();
     else if (!el.sharedModal.hidden) closeShared();
   });
+  // User pasted a deep link / used back-forward.
+  window.addEventListener('hashchange', function () { applyHashRoute(); });
 
   // ---- tooltips (moves + abilities) ---------------------------------------
 
@@ -1030,6 +1092,7 @@
       el.sourceFilter.value = '';
       show('dex');
       applyFilters();
+      applyHashRoute(); // honour a deep link (#mon=…&pack=…)
     } else {
       show('drop'); // no base bundled — fall back to the landing screen
     }
