@@ -11,6 +11,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const jarPath = process.argv[2];
 if (!jarPath) { console.error('usage: node scripts/build-base-assets.js <Cobblemon.jar>'); process.exit(1); }
@@ -66,12 +67,16 @@ function refToModelPath(ref) {
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'cobblemon-base.zip'), Buffer.from(zipped));
 
+  // Content hash so the client busts its Cache API entry when the bundle changes.
+  const assetVersion = crypto.createHash('sha1').update(Buffer.from(zipped)).digest('hex').slice(0, 10);
+
   // Bundled index (small).
   fs.writeFileSync(
     path.join(__dirname, '..', 'data', 'base-sprites.js'),
     '/* Auto-generated base Cobblemon sprite index. Regenerate: node scripts/build-base-assets.js <jar> */\n' +
-    'window.BASE_SPRITES = ' + JSON.stringify({ version: 'cobblemon-1.7.3', byId: byId, poses: poses }) + ';\n'
+    'window.BASE_SPRITES = ' + JSON.stringify({ version: 'cobblemon-1.7.3', assetVersion: assetVersion, byId: byId, poses: poses }) + ';\n'
   );
+  console.log('assetVersion:', assetVersion);
 
   console.log('models in bundle:', modelCount, '| textures:', texCount);
   console.log('cobblemon-base.zip:', (zipped.length / 1048576).toFixed(1), 'MB');

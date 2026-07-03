@@ -221,9 +221,14 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
 .card-top { display: flex; justify-content: space-between; align-items: center; }
 
 .card-art {
-  height: 96px; margin: 4px 0 2px;
+  height: 96px; margin: 4px 0 2px; position: relative;
   display: flex; align-items: center; justify-content: center;
 }
+.art-ph {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 40px; color: rgba(255, 255, 255, .10); pointer-events: none; transition: opacity .25s;
+}
+.card-art:has(.card-sprite.loaded) .art-ph { opacity: 0; }
 .card-sprite {
   max-width: 100%; max-height: 96px;
   image-rendering: pixelated; image-rendering: crisp-edges;

@@ -9,8 +9,11 @@
 (function (global) {
   'use strict';
 
-  const BUNDLE_URL = 'assets/cobblemon-base.zip';
-  const CACHE_NAME = 'fakedex-assets-v1';
+  // Version the URL by the bundle's content hash so a rebuilt bundle is a new
+  // URL — busting both the HTTP cache and our Cache API entry.
+  const VER = (global.BASE_SPRITES && global.BASE_SPRITES.assetVersion) || '';
+  const BUNDLE_URL = 'assets/cobblemon-base.zip' + (VER ? '?v=' + VER : '');
+  const CACHE_NAME = 'fakedex-assets';
 
   function unzip(arrayBuffer) {
     return new Promise(function (resolve, reject) {
@@ -27,6 +30,11 @@
         const cache = await caches.open(CACHE_NAME);
         resp = await cache.match(BUNDLE_URL);
         if (!resp) {
+          // Drop stale bundles (different ?v=) so the cache doesn't grow unbounded.
+          const keys = await cache.keys();
+          await Promise.all(keys.map(function (k) {
+            return /cobblemon-base\.zip/.test(k.url) && k.url !== new Request(BUNDLE_URL).url ? cache.delete(k) : null;
+          }));
           resp = await fetch(BUNDLE_URL);
           if (resp.ok) await cache.put(BUNDLE_URL, resp.clone());
         }

@@ -238,7 +238,9 @@
     let art;
     if (hasSprite(e.id)) {
       const src = spriteSrc(e.id);
-      art = '<div class="card-art"><img class="card-sprite' + (src ? ' loaded' : '') +
+      // A faint ◓ shows while the sprite streams in, replaced once it renders.
+      art = '<div class="card-art"><span class="art-ph">◓</span>' +
+        '<img class="card-sprite' + (src ? ' loaded' : '') +
         '" data-sprite-id="' + esc(e.id) + '"' + (src ? ' src="' + src + '"' : '') +
         ' alt="" loading="lazy"></div>';
     } else {
