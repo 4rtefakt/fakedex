@@ -1,11 +1,14 @@
 # Cloudflare Pages headers.
-# Bundled data + vendored libs are content-addressed by version, cache hard.
+# Vendored libs never change — cache hard.
 /vendor/*
   Cache-Control: public, max-age=31536000, immutable
-/data/*
-  Cache-Control: public, max-age=31536000, immutable
+# The big base asset bundle is versioned in its filename; safe to cache hard.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+# Generated data files are regenerated in place, so they must revalidate
+# (a conditional request → 304 when unchanged, so no re-download).
+/data/*
+  Cache-Control: public, max-age=0, must-revalidate
 
 # App code — revalidate so updates ship immediately.
 /js/*

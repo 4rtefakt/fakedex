@@ -103,7 +103,10 @@
   }
 
   // Build a THREE.Group from geometry JSON. makeMesh(geometry) -> THREE.Mesh.
-  function buildModel(geoJson, makeMesh) {
+  // `pose` (optional) is { boneName: {r:[x,y,z], p:[x,y,z], s:[x,y,z]} } — a
+  // resting idle applied on top of the bind pose (rotation added in degrees,
+  // position added, scale multiplied).
+  function buildModel(geoJson, makeMesh, pose) {
     const THREE = global.THREE;
     const list = geoJson['minecraft:geometry'];
     if (!list || !list.length) throw new Error('No geometry in model.');
@@ -111,6 +114,7 @@
     const desc = geo.description || {};
     const texW = desc.texture_width || 64;
     const texH = desc.texture_height || 32;
+    pose = pose || null;
 
     const nodes = {};
     (geo.bones || []).forEach(function (bone) {
@@ -124,10 +128,23 @@
       const pivot = def.pivot || [0, 0, 0];
       const parent = def.parent && nodes[def.parent] ? nodes[def.parent] : null;
       const pPivot = parent ? (parent.def.pivot || [0, 0, 0]) : [0, 0, 0];
-      obj.position.set(pivot[0] - pPivot[0], pivot[1] - pPivot[1], pivot[2] - pPivot[2]);
-      if (def.rotation) {
-        obj.rotation.set(-def.rotation[0] * DEG, -def.rotation[1] * DEG, def.rotation[2] * DEG, 'ZYX');
-      }
+      const bp = pose && pose[name];
+
+      // Bind rotation + idle-pose rotation (both bedrock degrees, same convention).
+      let rx = def.rotation ? def.rotation[0] : 0;
+      let ry = def.rotation ? def.rotation[1] : 0;
+      let rz = def.rotation ? def.rotation[2] : 0;
+      if (bp && bp.r) { rx += bp.r[0]; ry += bp.r[1]; rz -= bp.r[2]; }
+      if (rx || ry || rz) obj.rotation.set(-rx * DEG, -ry * DEG, rz * DEG, 'ZYX');
+
+      // Bind position (pivot relative to parent) + idle-pose translation.
+      // Bedrock animation +Z translates toward -Z in model space.
+      let px = pivot[0] - pPivot[0], py = pivot[1] - pPivot[1], pz = pivot[2] - pPivot[2];
+      if (bp && bp.p) { px += bp.p[0]; py += bp.p[1]; pz -= bp.p[2]; }
+      obj.position.set(px, py, pz);
+
+      if (bp && bp.s) obj.scale.set(bp.s[0], bp.s[1], bp.s[2]);
+
       (def.cubes || []).forEach(function (cube) {
         obj.add(makeMesh(cubeGeometry(THREE, cube, pivot, texW, texH)));
       });

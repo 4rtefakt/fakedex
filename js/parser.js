@@ -31,7 +31,7 @@
       /(^|\/)data\/[^/]+\/moves\/.+\.js(on)?$/.test(n) ||
       /(^|\/)assets\/[^/]+\/lang\/en_us\.json$/.test(n) ||
       (includeSprites &&
-        /(^|\/)assets\/[^/]+\/bedrock\/pokemon\/(models|resolvers|posers)\/.+\.json$/.test(n))
+        /(^|\/)assets\/[^/]+\/bedrock\/pokemon\/(models|resolvers|posers|animations)\/.+\.json$/.test(n))
     );
   }
 
@@ -262,8 +262,18 @@
     const modelsByRef = {};   // "ns:path/name.geo" -> geoJson (flat-file convention)
     const modelsByGeo = {};   // "geometry.name"     -> geoJson (identifier — handles subdirs)
     const resolversBySpecies = {}; // speciesKey -> [variations...]
+    const animByStem = {};    // "magmecko" -> { "animation.magmecko.ground_idle": {...} }
 
     for (const path in files) {
+      let am = path.match(/(^|\/)assets\/[^/]+\/bedrock\/pokemon\/animations\/(.+)\.json$/);
+      if (am) {
+        try {
+          const a = JSON.parse(text(files[path]));
+          const stem = am[2].split('/').pop().replace(/\.animation$/, '');
+          if (a && a.animations) animByStem[stem] = a.animations;
+        } catch (e) { /* skip bad animation */ }
+        continue;
+      }
       let m = path.match(/(^|\/)assets\/([^/]+)\/bedrock\/pokemon\/models\/(.+)\.json$/);
       if (m) {
         try {
@@ -293,11 +303,79 @@
         } catch (e) { /* skip bad resolver */ }
       }
     }
-    return { modelsByRef: modelsByRef, modelsByGeo: modelsByGeo, resolversBySpecies: resolversBySpecies };
+    return {
+      modelsByRef: modelsByRef, modelsByGeo: modelsByGeo,
+      resolversBySpecies: resolversBySpecies, animByStem: animByStem,
+    };
   }
 
   function resolveModel(sprIdx, modelRef) {
     return sprIdx.modelsByRef[modelRef] || sprIdx.modelsByGeo[refToGeoId(modelRef)] || null;
+  }
+
+  // ---- idle pose extraction (bedrock animation -> static bone deltas) ------
+
+  // Choose the animation that best represents a resting portrait pose.
+  function pickIdleAnim(animations) {
+    const names = Object.keys(animations || {});
+    if (!names.length) return null;
+    const by = function (re) { return names.find(function (n) { return re.test(n); }); };
+    return by(/ground_idle$/) || by(/air_idle$/) || by(/water_idle$/) ||
+      by(/[._]idle$/) || by(/idle/) || by(/pose$/) || null;
+  }
+
+  const Molang = (typeof window !== 'undefined' ? window : globalThis).Molang;
+
+  function evalChannel(ch, t) {
+    if (ch == null || !Molang) return null;
+    if (typeof ch === 'number') return [ch, ch, ch];
+    if (Array.isArray(ch)) return ch.map(function (x) { return Molang.evaluate(x, t); });
+    // Keyframes: { "0.0": [..] | {post:[..]} , ... } — take the frame at/just before t.
+    const keys = Object.keys(ch).filter(function (k) { return !isNaN(parseFloat(k)); })
+      .sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
+    if (!keys.length) return null;
+    let frame = ch[keys[0]];
+    for (const k of keys) { if (parseFloat(k) <= t) frame = ch[k]; else break; }
+    let vec = frame;
+    if (frame && !Array.isArray(frame)) vec = frame.post || frame.pre || frame.vector || null;
+    if (!Array.isArray(vec)) return null;
+    return vec.map(function (x) { return Molang.evaluate(x, t); });
+  }
+
+  function round3(a) {
+    return a && a.map(function (x) { return Math.round(x * 1000) / 1000; });
+  }
+  function nonZero(a) { return a && (a[0] || a[1] || a[2]); }
+  function isOne(a) { return a && a[0] === 1 && a[1] === 1 && a[2] === 1; }
+
+  // animObj = the animation entry (with .bones); returns { bone: {r?,p?,s?} } at
+  // time t, omitting null/identity channels to keep the bundle small.
+  function extractPose(animObj, t) {
+    const pose = {};
+    const bones = (animObj && animObj.bones) || {};
+    for (const bn in bones) {
+      const b = bones[bn];
+      const r = evalChannel(b.rotation, t);
+      const p = evalChannel(b.position, t);
+      const s = evalChannel(b.scale, t);
+      const e = {};
+      if (nonZero(r)) e.r = round3(r);
+      if (nonZero(p)) e.p = round3(p);
+      if (s && !isOne(s)) e.s = round3(s);
+      if (e.r || e.p || e.s) pose[bn] = e;
+    }
+    return pose;
+  }
+
+  // Build { bone: {r,p,s} } for a model's resting idle, or null.
+  function idlePoseFor(animByStem, modelRef) {
+    const stem = modelRef.split(':').pop().split('/').pop().replace(/\.geo$/, '');
+    const file = animByStem[stem];
+    if (!file) return null;
+    const idle = pickIdleAnim(file);
+    if (!idle) return null;
+    const pose = extractPose(file[idle], 0);
+    return Object.keys(pose).length ? pose : null;
   }
 
   // ---- top level: archive -> { entries, meta, warnings } ------------------
@@ -403,9 +481,11 @@
 
     // Resolve a renderable model + textures for each entry, where the pack ships
     // one. (Forms of vanilla mons often reuse base-Cobblemon models we don't have.)
-    const sprIdx = wantSprites ? buildSpriteIndex(files) : { modelsByRef: {}, modelsByGeo: {}, resolversBySpecies: {} };
+    const sprIdx = wantSprites ? buildSpriteIndex(files)
+      : { modelsByRef: {}, modelsByGeo: {}, resolversBySpecies: {}, animByStem: {} };
     const spriteById = {};
     const usedModels = {};      // modelRef -> geoJson (only the ones we render)
+    const poseByModel = {};     // modelRef -> resting idle pose (bone deltas)
     const neededTextures = {};
     for (const entry of (wantSprites ? entries : [])) {
       const variations = sprIdx.resolversBySpecies[entry.speciesName];
@@ -418,6 +498,9 @@
       if (!modelRef || !basePath) continue;
       const geo = resolveModel(sprIdx, modelRef);
       if (geo) usedModels[modelRef] = geo;
+      if (!(modelRef in poseByModel)) {
+        poseByModel[modelRef] = idlePoseFor(sprIdx.animByStem, modelRef);
+      }
       // If the model isn't in this pack it may be a base-Cobblemon model reused
       // by a texture-only variant pack — record the spec anyway and let the base
       // asset bundle supply the model at render time.
@@ -441,9 +524,14 @@
       }
     }
 
+    // Drop null poses so the map only carries real ones.
+    const poses = {};
+    for (const mr in poseByModel) { if (poseByModel[mr]) poses[mr] = poseByModel[mr]; }
+
     const sprites = {
       models: usedModels,
       textures: textures,
+      poses: poses,   // modelRef -> { bone: {r,p,s} }
       byId: spriteById,
     };
 

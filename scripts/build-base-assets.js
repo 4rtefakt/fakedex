@@ -20,6 +20,7 @@ const fflate = require(path.join(__dirname, '..', 'vendor', 'fflate.js'));
 global.fflate = fflate;
 const _unzipSync = fflate.unzipSync;
 global.fflate.unzip = function (data, opts, cb) { try { cb(null, _unzipSync(data, opts)); } catch (e) { cb(e); } };
+require(path.join(__dirname, '..', 'js', 'molang.js'));
 require(path.join(__dirname, '..', 'js', 'parser.js'));
 
 function refToModelPath(ref) {
@@ -41,11 +42,13 @@ function refToModelPath(ref) {
   // Keep only entries whose model is actually present in this bundle.
   const byId = {};
   const usedRefs = {};
+  const poses = {};
   for (const id in result.sprites.byId) {
     const spec = result.sprites.byId[id];
     if (!models[spec.modelRef]) continue;
     byId[id] = { modelRef: spec.modelRef, texturePaths: spec.texturePaths };
     usedRefs[spec.modelRef] = true;
+    if (result.sprites.poses[spec.modelRef]) poses[spec.modelRef] = result.sprites.poses[spec.modelRef];
   }
 
   const zipEntries = {};
@@ -67,7 +70,7 @@ function refToModelPath(ref) {
   fs.writeFileSync(
     path.join(__dirname, '..', 'data', 'base-sprites.js'),
     '/* Auto-generated base Cobblemon sprite index. Regenerate: node scripts/build-base-assets.js <jar> */\n' +
-    'window.BASE_SPRITES = ' + JSON.stringify({ version: 'cobblemon-1.7.3', byId: byId }) + ';\n'
+    'window.BASE_SPRITES = ' + JSON.stringify({ version: 'cobblemon-1.7.3', byId: byId, poses: poses }) + ';\n'
   );
 
   console.log('models in bundle:', modelCount, '| textures:', texCount);

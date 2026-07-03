@@ -53,7 +53,7 @@
   let state = {
     entries: [], byId: {}, filtered: [],
     customMoves: {}, customAbilities: {},
-    sprites: { models: {}, textures: {}, byId: {} },
+    sprites: { models: {}, textures: {}, poses: {}, byId: {} },
     sources: [], // [{ name, count }] in load order
     sourceFilter: '',
     publishable: {}, // sourceName -> { payload, status }
@@ -90,7 +90,8 @@
       .map(function (p) { return state.sprites.textures[p]; })
       .filter(Boolean);
     if (!textures.length) return null;
-    return window.Sprite.render({ model: model, textures: textures });
+    const pose = (state.sprites.poses && state.sprites.poses[spec.modelRef]) || null;
+    return window.Sprite.render({ model: model, textures: textures, pose: pose });
   }
 
   let baseAssetsState = 'idle'; // idle | loading | ready | failed
@@ -488,6 +489,7 @@
     if (sprites) {
       Object.assign(state.sprites.models, sprites.models || {});
       Object.assign(state.sprites.textures, sprites.textures || {});
+      Object.assign(state.sprites.poses, sprites.poses || {});
       for (const oid in (sprites.byId || {})) {
         state.sprites.byId[slug + '::' + oid] = sprites.byId[oid];
       }
@@ -938,7 +940,7 @@
       // (matters if the page re-inits).
       const entries = base.entries.map(function (e) { return Object.assign({}, e); });
       const baseSprites = window.BASE_SPRITES
-        ? { models: {}, textures: {}, byId: window.BASE_SPRITES.byId }
+        ? { models: {}, textures: {}, poses: window.BASE_SPRITES.poses || {}, byId: window.BASE_SPRITES.byId }
         : null;
       addSource(BASE_SOURCE, entries, baseSprites, null);
       state.sourceFilter = '';

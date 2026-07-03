@@ -75,7 +75,7 @@
         map: tex, transparent: true, alphaTest: 0.01, side: THREE.DoubleSide,
       });
       if (i > 0) { mat.polygonOffset = true; mat.polygonOffsetFactor = -i; mat.polygonOffsetUnits = -i; mat.depthWrite = false; }
-      const layer = global.Bedrock.buildModel(spec.model, function (g) { return new THREE.Mesh(g, mat); });
+      const layer = global.Bedrock.buildModel(spec.model, function (g) { return new THREE.Mesh(g, mat); }, spec.pose);
       root.add(layer);
     });
 

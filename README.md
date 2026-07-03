@@ -72,7 +72,8 @@ data/base-cobblemon.js   # bundled base Cobblemon dex, loaded by default (genera
 js/constants.js          # type/category colors, slugs, prettifiers
 js/parser.js             # archive -> normalized dex + custom move/ability data
 js/modrinth.js           # Modrinth API: resolve project, list versions, download
-js/bedrock.js            # bedrock .geo.json -> THREE.Group
+js/molang.js             # tiny Molang evaluator (for idle-pose baking)
+js/bedrock.js            # bedrock .geo.json (+ idle pose) -> THREE.Group
 js/sprite.js             # render a model to a PNG data URL
 js/sharedb.js            # shared-dex client (hash, publish, search)
 js/app.js                # drag/drop, grid, filters, detail drawer, tooltips, sprites
@@ -147,8 +148,21 @@ The client fetches that bundle **once** (lazily, when a base mon first needs a
 sprite), caches it via the Cache API, and merges it into the renderer's model +
 texture pools. So base mons render, and a datapack that only adds a new skin for
 an existing Pokémon resolves its model from the base bundle and its texture from
-the pack. Complex winged models look a little busy in their static bind pose;
-most are crisp.
+the pack.
+
+### Idle poses
+
+Bedrock models are authored in a T-pose bind stance; the natural resting stance
+comes from an idle **animation** (bedrock keyframes with Molang expressions). To
+avoid stiff T-posed humanoids, Fakédex evaluates each mon's idle animation at
+t = 0 and applies the resulting bone rotations/offsets over the bind pose:
+
+- `js/molang.js` is a tiny Molang evaluator (`math.*` in degrees, `query.*`
+  resolved, character-whitelisted) used to bake keyframe values.
+- Poses are pre-computed at build time for base mons (into `data/base-sprites.js`)
+  and at parse time for packs, so no animation files ship to the client.
+
+Complex winged models still look a little busy in a static frame; most are crisp.
 
 ## Shared dex (Cloudflare D1)
 
