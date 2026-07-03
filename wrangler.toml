@@ -2,11 +2,9 @@ name = "fakedex"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "."
 
-# The shared-dex D1 binding ("DB") is NOT declared here on purpose:
-#  - Local dev binds it via a CLI flag (see .claude/launch.json / README).
-#  - Production binds it in the Cloudflare Pages dashboard after you create the
-#    database, so a git deploy never ships an invalid binding.
-# Provision once:
-#    wrangler d1 create fakedex-db
-#    wrangler d1 execute fakedex-db --remote --file schema.sql
-# then add a D1 binding named DB -> fakedex-db in Pages > Settings > Functions.
+# Shared-dex database (tables auto-create on first request — no schema step).
+# Local dev overrides this with a throwaway DB via the --d1 CLI flag.
+[[d1_databases]]
+binding = "DB"
+database_name = "fakedex-db"
+database_id = "65bd00b7-6c23-4166-a5c5-292876566ba6"
