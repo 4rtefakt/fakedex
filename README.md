@@ -74,7 +74,10 @@ js/parser.js             # archive -> normalized dex + custom move/ability data
 js/modrinth.js           # Modrinth API: resolve project, list versions, download
 js/bedrock.js            # bedrock .geo.json -> THREE.Group
 js/sprite.js             # render a model to a PNG data URL
+js/sharedb.js            # shared-dex client (hash, publish, search)
 js/app.js                # drag/drop, grid, filters, detail drawer, tooltips, sprites
+functions/api/*.js       # Cloudflare Pages Functions: publish / search / packs
+schema.sql               # D1 schema (also auto-created at runtime)
 scripts/build-base-data.js  # regenerates bundled move/ability data
 scripts/build-base-dex.js   # regenerates the base Cobblemon dex
 server.js                # dev static server
@@ -137,12 +140,39 @@ Entries whose model isn't in the pack (e.g. forms of vanilla mons that reuse
 base-Cobblemon models) fall back to a placeholder. For Laser's pack that's all
 69 species + 122/130 forms rendered.
 
+## Shared dex (Cloudflare D1)
+
+A community index of every fakemon across every published pack, searchable
+without loading anything. Clients still parse locally, then contribute a
+**compact summary** (name/dex#/types/BST/abilities/egg-groups — no sprites or
+movesets) to a D1 database via Pages Functions.
+
+- Packs are keyed by a **SHA-256 of their file bytes**, so a given version is
+  stored once (`{status:"exists"}` on re-publish).
+- **Modrinth packs auto-contribute** (they're already public); drag-dropped
+  local files get an opt-in "Publish to shared dex" button.
+- The **🌐 Shared dex** button opens a cross-pack search (`/api/search`); the
+  button only appears when the backend is reachable, so the site degrades
+  cleanly before D1 is provisioned.
+
+Functions live in `functions/api/` (`publish`, `search`, `packs`); the schema
+auto-creates on first request (`functions/_utils.js`), so provisioning is just:
+
+```
+wrangler d1 create fakedex-db
+# then in the Pages dashboard: Settings > Functions > add a D1 binding
+#   named  DB  ->  fakedex-db
+```
+
+Local dev binds a throwaway local D1 automatically:
+
+```
+npx wrangler pages dev . --port 4173 --d1 DB=fakedex-db
+```
+
 ## Roadmap
 
 Done: local viewer, resolved move/ability data, Cloudflare Pages hosting,
-Modrinth integration, in-browser 3D sprites. Planned next:
-
-- **Shared database.** Cache parsed results keyed by a mod hash/signature so the
-  same pack version isn't re-parsed by everyone; build a global index of every
-  fakemon and which pack it belongs to. (This is the point where a Cloudflare
-  Pages Function + D1/KV finally earns its keep.)
+Modrinth integration, in-browser 3D sprites, base Cobblemon dex, shared database.
+Planned next: QoL & polish (grid virtualization for the 1200+ base dex,
+evolution chains, shiny toggle, deep-linking to a mon, sprite caching).

@@ -23,6 +23,14 @@
     addPackBtn: $('addPackBtn'),
     backBtn: $('backBtn'),
     topbarActions: $('topbarActions'),
+    sharedBtn: $('sharedBtn'),
+    sharedModal: $('sharedModal'),
+    sharedBackdrop: $('sharedBackdrop'),
+    sharedClose: $('sharedClose'),
+    sharedSearch: $('sharedSearch'),
+    sharedType: $('sharedType'),
+    sharedResults: $('sharedResults'),
+    sharedStats: $('sharedStats'),
     drawer: $('drawer'),
     drawerPanel: $('drawerPanel'),
     drawerBackdrop: $('drawerBackdrop'),
@@ -47,6 +55,9 @@
     customMoves: {}, customAbilities: {},
     sprites: { models: {}, textures: {}, byId: {} },
     sources: [], // [{ name, count }] in load order
+    sourceFilter: '',
+    publishable: {}, // sourceName -> { payload, status }
+    sharedAvailable: false,
   };
 
   const BASE_SOURCE = 'Cobblemon';
@@ -446,6 +457,7 @@
     for (const e of entries) {
       const oid = e.id;
       e.source = display;
+      e._oid = oid;
       e.uid = slug + '::' + oid;
       e.id = e.uid; // used everywhere as the entry key
       state.byId[e.uid] = e;
@@ -489,12 +501,26 @@
     el.sourceFilter.value = state.sourceFilter || '';
   }
 
+  function publishBit(sourceName) {
+    if (!window.SharedDex || !sourceName || sourceName === BASE_SOURCE) return '';
+    const p = state.publishable[sourceName];
+    if (!p) return '';
+    if (p.status === 'ready') return ' · <button class="pub-btn" data-pub="' + esc(sourceName) + '">↥ Publish to shared dex</button>';
+    if (p.status === 'publishing') return ' · <span class="pub-status">publishing…</span>';
+    if (p.status === 'published') return ' · <span class="pub-status ok">✓ published to shared dex</span>';
+    if (p.status === 'exists') return ' · <span class="pub-status ok">✓ already in shared dex</span>';
+    if (p.status === 'error') return ' · <button class="pub-btn" data-pub="' + esc(sourceName) + '">retry publish</button>' +
+      ' <span class="warn">' + esc(p.error || '') + '</span>';
+    return '';
+  }
+
   function updateDexMeta() {
     const shown = state.sourceFilter;
     if (shown) {
       const s = state.sources.find(function (x) { return x.name === shown; });
       el.dexMeta.innerHTML = '<strong>' + esc(shown) + '</strong> · ' + (s ? s.count : 0) + ' entries' +
-        (s && s.warnings ? ' · <span class="warn">' + s.warnings + ' warnings</span>' : '');
+        (s && s.warnings ? ' · <span class="warn">' + s.warnings + ' warnings</span>' : '') +
+        publishBit(shown);
     } else {
       const packs = state.sources.length - 1;
       el.dexMeta.innerHTML = '<strong>' + state.entries.length + '</strong> entries across ' +
@@ -514,13 +540,15 @@
     el.sourceFilter.value = name;
     show('dex');
     applyFilters();
+    return name;
   }
 
   function cleanSourceName(name) {
     return String(name).replace(/\.(jar|zip)$/i, '').trim() || 'pack';
   }
 
-  async function parseBuffer(buf, name, sourceName) {
+  async function parseBuffer(buf, name, sourceName, opts) {
+    opts = opts || {};
     show('loading');
     el.loadingMsg.textContent = 'Parsing species…';
     try {
@@ -531,7 +559,8 @@
           'Make sure it contains data/<namespace>/species/…');
         return;
       }
-      loadResult(result, cleanSourceName(sourceName || name));
+      const loaded = loadResult(result, cleanSourceName(sourceName || name));
+      preparePublish(buf, loaded, opts).catch(function (e) { console.warn('publish prep', e); });
     } catch (err) {
       console.error(err);
       show('drop');
@@ -551,6 +580,108 @@
       show('drop');
       alert('Could not read "' + file.name + '": ' + err.message);
     }
+  }
+
+  // ---- shared dex: browse --------------------------------------------------
+
+  const ALL_TYPES = Object.keys(window.DexConst.TYPE_COLORS);
+  let sharedTimer = null;
+  let sharedLoaded = false;
+
+  function openShared() {
+    el.sharedModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    if (!sharedLoaded) {
+      sharedLoaded = true;
+      el.sharedType.innerHTML = '<option value="">All types</option>' +
+        ALL_TYPES.map(function (t) { return '<option value="' + t + '">' + cap(t) + '</option>'; }).join('');
+      window.SharedDex.listPacks().then(function (d) {
+        const t = d.totals || {};
+        el.sharedStats.textContent = (t.fakemon || 0) + ' fakemon across ' + (t.packs || 0) + ' published packs — search them all.';
+      }).catch(function () {});
+      doSharedSearch();
+    }
+    el.sharedSearch.focus();
+  }
+
+  function closeShared() {
+    el.sharedModal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  function scheduleSharedSearch() {
+    clearTimeout(sharedTimer);
+    sharedTimer = setTimeout(doSharedSearch, 220);
+  }
+
+  async function doSharedSearch() {
+    const q = el.sharedSearch.value.trim();
+    const type = el.sharedType.value;
+    el.sharedResults.innerHTML = '<p class="shared-msg">Searching…</p>';
+    try {
+      const data = await window.SharedDex.search(q, type, 100);
+      renderShared(data.results || []);
+    } catch (e) {
+      el.sharedResults.innerHTML = '<p class="shared-msg err">' + esc(e.message) + '</p>';
+    }
+  }
+
+  function sharedTypeBadge(t) {
+    if (!t) return '';
+    return '<span class="type" style="background:' + typeColor(t) + '">' + esc(cap(t)) + '</span>';
+  }
+
+  function renderShared(results) {
+    if (!results.length) {
+      el.sharedResults.innerHTML = '<p class="shared-msg">No matches yet. Load a pack from Modrinth to add to the shared dex.</p>';
+      return;
+    }
+    el.sharedResults.innerHTML = results.map(function (r) {
+      const num = r.dex_number != null ? '#' + String(r.dex_number).padStart(3, '0') : '';
+      const pack = r.modrinth_slug
+        ? '<a href="https://modrinth.com/mod/' + esc(r.modrinth_slug) + '" target="_blank" rel="noopener">' + esc(r.pack_name) + '</a>'
+        : esc(r.pack_name);
+      return '<div class="shared-row">' +
+        '<span class="shared-dex">' + num + '</span>' +
+        '<span class="shared-name">' + esc(r.name) + '</span>' +
+        '<span class="shared-types">' + sharedTypeBadge(r.primary_type) + sharedTypeBadge(r.secondary_type) + '</span>' +
+        '<span class="shared-bst">BST ' + (r.bst || '—') + '</span>' +
+        '<span class="shared-pack">' + pack + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ---- shared dex: publish -------------------------------------------------
+
+  async function preparePublish(buf, sourceName, opts) {
+    if (!window.SharedDex || !state.sharedAvailable || !sourceName || sourceName === BASE_SOURCE) return;
+    const hash = await window.SharedDex.hashBuffer(buf);
+    const entries = state.entries.filter(function (e) { return e.source === sourceName; });
+    const payload = window.SharedDex.buildPayload(
+      hash, sourceName, opts.source || 'file', entries,
+      { modrinthSlug: opts.modrinthSlug || null, version: opts.version || null }
+    );
+    state.publishable[sourceName] = { payload: payload, status: 'ready' };
+    if (opts.autoPublish) {
+      publishNow(sourceName);
+    } else {
+      updateDexMeta();
+    }
+  }
+
+  async function publishNow(sourceName) {
+    const p = state.publishable[sourceName];
+    if (!p || p.status === 'publishing' || p.status === 'published' || p.status === 'exists') return;
+    p.status = 'publishing';
+    updateDexMeta();
+    try {
+      const res = await window.SharedDex.publish(p.payload);
+      p.status = res.status === 'exists' ? 'exists' : 'published';
+    } catch (e) {
+      p.status = 'error';
+      p.error = e.message;
+    }
+    updateDexMeta();
   }
 
   // ---- Modrinth ------------------------------------------------------------
@@ -625,7 +756,12 @@
         el.mrPct.textContent = pct + '%';
       });
       const srcName = mrResolved ? mrResolved.title + ' ' + v.number : v.file.filename;
-      await parseBuffer(buf, v.file.filename, srcName);
+      await parseBuffer(buf, v.file.filename, srcName, {
+        source: 'modrinth',
+        modrinthSlug: mrResolved ? mrResolved.slug : null,
+        version: v.number,
+        autoPublish: true, // Modrinth packs are already public
+      });
     } catch (err) {
       console.error(err);
       show('drop');
@@ -691,14 +827,25 @@
     show('drop');
   });
   el.backBtn.addEventListener('click', function () { show('dex'); });
+  el.sharedBtn.addEventListener('click', openShared);
+  el.sharedClose.addEventListener('click', closeShared);
+  el.sharedBackdrop.addEventListener('click', closeShared);
+  el.sharedSearch.addEventListener('input', scheduleSharedSearch);
+  el.sharedType.addEventListener('change', doSharedSearch);
 
   el.grid.addEventListener('click', function (e) {
     const card = e.target.closest('.card');
     if (card) openDrawer(card.dataset.id);
   });
+  el.dexMeta.addEventListener('click', function (e) {
+    const btn = e.target.closest('.pub-btn');
+    if (btn) publishNow(btn.dataset.pub);
+  });
   el.drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !el.drawer.hidden) closeDrawer();
+    if (e.key !== 'Escape') return;
+    if (!el.drawer.hidden) closeDrawer();
+    else if (!el.sharedModal.hidden) closeShared();
   });
 
   // ---- tooltips (moves + abilities) ---------------------------------------
@@ -751,7 +898,17 @@
 
   // ---- init: show the base Cobblemon dex by default -----------------------
 
+  // Is the shared-dex backend reachable? (Only then reveal its UI + publishing.)
+  function checkShared() {
+    if (!window.SharedDex) return;
+    window.SharedDex.listPacks().then(function () {
+      state.sharedAvailable = true;
+      el.sharedBtn.hidden = false;
+    }).catch(function () { state.sharedAvailable = false; });
+  }
+
   function init() {
+    checkShared();
     const base = window.BASE_COBBLEMON;
     if (base && base.entries && base.entries.length) {
       // Clone entries so addSource can namespace ids without mutating the bundle

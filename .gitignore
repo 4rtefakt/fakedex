@@ -14,3 +14,4 @@ Thumbs.db
 # Local tooling
 .claude/
 tmp_extract/
+.wrangler/

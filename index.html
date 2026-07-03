@@ -19,6 +19,7 @@
       <input id="search" type="search" placeholder="Search name, type, ability, egg group…" autocomplete="off" />
       <select id="sourceFilter" aria-label="Filter by source"><option value="">All sources</option></select>
       <select id="typeFilter" aria-label="Filter by type"><option value="">All types</option></select>
+      <button id="sharedBtn" class="ghost" title="Browse the shared community dex" hidden>🌐 Shared dex</button>
       <button id="addPackBtn" class="ghost accent" title="Add a fakemon pack">＋ Add pack</button>
     </div>
   </header>
@@ -88,6 +89,25 @@
     </section>
   </main>
 
+  <!-- Shared dex modal -->
+  <div id="sharedModal" class="modal" hidden>
+    <div class="modal-backdrop" id="sharedBackdrop"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <h2>Shared Fakédex</h2>
+          <p class="modal-sub" id="sharedStats">Every fakemon the community has published — search across all packs.</p>
+        </div>
+        <button class="modal-close" id="sharedClose" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-controls">
+        <input id="sharedSearch" type="search" placeholder="Search every published fakemon…" autocomplete="off" />
+        <select id="sharedType" aria-label="Filter by type"><option value="">All types</option></select>
+      </div>
+      <div class="modal-body" id="sharedResults"></div>
+    </div>
+  </div>
+
   <!-- Detail drawer -->
   <div id="drawer" class="drawer" hidden>
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
@@ -111,6 +131,7 @@
   <script src="js/bedrock.js"></script>
   <script src="js/sprite.js"></script>
   <script src="js/modrinth.js"></script>
+  <script src="js/sharedb.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
