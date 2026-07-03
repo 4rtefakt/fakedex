@@ -136,9 +136,19 @@ renders them itself:
 - The grid renders thumbnails lazily as cards scroll into view (IntersectionObserver,
   one render at a time to stay smooth); the detail drawer shows a larger portrait.
 
-Entries whose model isn't in the pack (e.g. forms of vanilla mons that reuse
-base-Cobblemon models) fall back to a placeholder. For Laser's pack that's all
-69 species + 122/130 forms rendered.
+### Base sprites & variant packs
+
+Base Cobblemon mons (and texture-only variant packs that reuse a base model) need
+Cobblemon's own models. Those turned out to be tiny — every *used* model + primary
+texture zips to **~3.6 MB** (`assets/cobblemon-base.zip`, built by
+`scripts/build-base-assets.js`, indexed by `data/base-sprites.js`).
+
+The client fetches that bundle **once** (lazily, when a base mon first needs a
+sprite), caches it via the Cache API, and merges it into the renderer's model +
+texture pools. So base mons render, and a datapack that only adds a new skin for
+an existing Pokémon resolves its model from the base bundle and its texture from
+the pack. Complex winged models look a little busy in their static bind pose;
+most are crisp.
 
 ## Shared dex (Cloudflare D1)
 

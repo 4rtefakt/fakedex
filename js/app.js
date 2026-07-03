@@ -93,8 +93,31 @@
     return window.Sprite.render({ model: model, textures: textures });
   }
 
+  let baseAssetsState = 'idle'; // idle | loading | ready | failed
+
+  async function loadBaseAssets() {
+    if (baseAssetsState !== 'idle' || !window.BaseAssets) return;
+    baseAssetsState = 'loading';
+    try {
+      const pack = await window.BaseAssets.loadBase();
+      Object.assign(state.sprites.models, pack.models);
+      Object.assign(state.sprites.textures, pack.textures);
+      baseAssetsState = 'ready';
+      checkVisibleSprites(); // render whatever's on screen now that models exist
+    } catch (e) {
+      console.warn('base assets failed', e);
+      baseAssetsState = 'failed';
+    }
+  }
+
   function enqueueSprite(id) {
     if (spriteCache[id] || !hasSprite(id)) return;
+    const spec = state.sprites.byId[id];
+    if (spec && !state.sprites.models[spec.modelRef]) {
+      // Model lives in the base bundle — fetch it (once), then this will retry.
+      loadBaseAssets();
+      return;
+    }
     spriteCache[id] = 'pending';
     spriteQueue.push(id);
     pumpSpriteQueue();
@@ -914,7 +937,10 @@
       // Clone entries so addSource can namespace ids without mutating the bundle
       // (matters if the page re-inits).
       const entries = base.entries.map(function (e) { return Object.assign({}, e); });
-      addSource(BASE_SOURCE, entries, null, null);
+      const baseSprites = window.BASE_SPRITES
+        ? { models: {}, textures: {}, byId: window.BASE_SPRITES.byId }
+        : null;
+      addSource(BASE_SOURCE, entries, baseSprites, null);
       state.sourceFilter = '';
       el.sourceFilter.value = '';
       show('dex');

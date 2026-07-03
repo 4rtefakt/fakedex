@@ -251,15 +251,32 @@
 
   // Build { models, textures(paths only), byId } from the bedrock files. Returns
   // the set of texture paths still to extract (done in a second unzip pass).
+  // Resolver "model" refs look like "cobblemon:bulbasaur.geo"; the matching
+  // geometry identifier inside the .geo.json is "geometry.bulbasaur".
+  function refToGeoId(ref) {
+    const name = ref.split(':').pop().split('/').pop().replace(/\.geo$/, '');
+    return 'geometry.' + name;
+  }
+
   function buildSpriteIndex(files) {
-    const modelsByRef = {};   // "ns:name.geo" -> geoJson
+    const modelsByRef = {};   // "ns:path/name.geo" -> geoJson (flat-file convention)
+    const modelsByGeo = {};   // "geometry.name"     -> geoJson (identifier — handles subdirs)
     const resolversBySpecies = {}; // speciesKey -> [variations...]
 
     for (const path in files) {
       let m = path.match(/(^|\/)assets\/([^/]+)\/bedrock\/pokemon\/models\/(.+)\.json$/);
       if (m) {
-        try { modelsByRef[m[2] + ':' + m[3]] = JSON.parse(text(files[path])); }
-        catch (e) { /* skip bad model */ }
+        try {
+          const geo = JSON.parse(text(files[path]));
+          modelsByRef[m[2] + ':' + m[3]] = geo;
+          const list = geo['minecraft:geometry'];
+          if (Array.isArray(list)) {
+            list.forEach(function (g) {
+              const id = g && g.description && g.description.identifier;
+              if (id && !modelsByGeo[id]) modelsByGeo[id] = geo;
+            });
+          }
+        } catch (e) { /* skip bad model */ }
         continue;
       }
       m = path.match(/(^|\/)assets\/[^/]+\/bedrock\/pokemon\/resolvers\/.+\.json$/);
@@ -272,7 +289,11 @@
         } catch (e) { /* skip bad resolver */ }
       }
     }
-    return { modelsByRef: modelsByRef, resolversBySpecies: resolversBySpecies };
+    return { modelsByRef: modelsByRef, modelsByGeo: modelsByGeo, resolversBySpecies: resolversBySpecies };
+  }
+
+  function resolveModel(sprIdx, modelRef) {
+    return sprIdx.modelsByRef[modelRef] || sprIdx.modelsByGeo[refToGeoId(modelRef)] || null;
   }
 
   // ---- top level: archive -> { entries, meta, warnings } ------------------
@@ -378,8 +399,9 @@
 
     // Resolve a renderable model + textures for each entry, where the pack ships
     // one. (Forms of vanilla mons often reuse base-Cobblemon models we don't have.)
-    const sprIdx = wantSprites ? buildSpriteIndex(files) : { modelsByRef: {}, resolversBySpecies: {} };
+    const sprIdx = wantSprites ? buildSpriteIndex(files) : { modelsByRef: {}, modelsByGeo: {}, resolversBySpecies: {} };
     const spriteById = {};
+    const usedModels = {};      // modelRef -> geoJson (only the ones we render)
     const neededTextures = {};
     for (const entry of (wantSprites ? entries : [])) {
       const variations = sprIdx.resolversBySpecies[entry.speciesName];
@@ -389,14 +411,19 @@
       const modelRef = normalizeRef(matched.model || baseVar.model);
       const layers = matched.layers || baseVar.layers || [];
       const basePath = refToAssetPath(matched.texture || baseVar.texture);
-      if (!modelRef || !basePath || !sprIdx.modelsByRef[modelRef]) continue;
+      if (!modelRef || !basePath) continue;
+      const geo = resolveModel(sprIdx, modelRef);
+      if (geo) usedModels[modelRef] = geo;
+      // If the model isn't in this pack it may be a base-Cobblemon model reused
+      // by a texture-only variant pack — record the spec anyway and let the base
+      // asset bundle supply the model at render time.
       const texPaths = [basePath];
       layers.forEach(function (l) {
         const p = l && l.texture ? refToAssetPath(l.texture) : null;
         if (p) texPaths.push(p);
       });
       texPaths.forEach(function (p) { neededTextures[p] = true; });
-      spriteById[entry.id] = { modelRef: modelRef, texturePaths: texPaths };
+      spriteById[entry.id] = { modelRef: modelRef, texturePaths: texPaths, externalModel: !geo };
     }
 
     // Second unzip pass: pull just the texture PNGs the sprites reference. A
@@ -411,7 +438,7 @@
     }
 
     const sprites = {
-      models: sprIdx.modelsByRef,
+      models: usedModels,
       textures: textures,
       byId: spriteById,
     };
