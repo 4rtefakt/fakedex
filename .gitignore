@@ -1,0 +1,16 @@
+# Sample packs — large binaries, not needed in the repo (bring your own pack)
+samples/
+
+# Dependencies / build noise
+node_modules/
+*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local tooling
+.claude/
+tmp_extract/

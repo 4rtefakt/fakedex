@@ -1,0 +1,14 @@
+# Cloudflare Pages headers.
+# Bundled data + vendored libs are content-addressed by version, cache hard.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/data/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# App code — revalidate so updates ship immediately.
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+/styles.css
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

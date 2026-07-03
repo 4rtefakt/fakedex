@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fakédex — Cobblemon Fakemon Pokédex</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◓</span>
+      <div>
+        <h1>Fakédex</h1>
+        <p class="tagline">Drop a Cobblemon fakemon pack — read its dex, locally.</p>
+      </div>
+    </div>
+    <div class="topbar-actions" hidden id="topbarActions">
+      <input id="search" type="search" placeholder="Search name, type, ability, egg group…" autocomplete="off" />
+      <select id="typeFilter" aria-label="Filter by type"><option value="">All types</option></select>
+      <button id="resetBtn" class="ghost" title="Load another pack">↻ New pack</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Drop landing -->
+    <section id="dropView" class="drop-view">
+      <div id="dropzone" class="dropzone">
+        <div class="dz-inner">
+          <div class="dz-icon">⇪</div>
+          <p class="dz-title">Drop a mod file here</p>
+          <p class="dz-sub">
+            <code>.jar</code>, <code>.zip</code> datapack, or resourcepack —
+            any Cobblemon pack format works. Parsed entirely in your browser;
+            nothing is uploaded.
+          </p>
+          <label class="dz-btn">
+            Choose file…
+            <input id="fileInput" type="file" accept=".jar,.zip" hidden />
+          </label>
+        </div>
+      </div>
+      <p class="hint">
+        Try <strong>Laser's Fakemon Pack</strong> — the <code>.jar</code> or the datapack <code>.zip</code>.
+      </p>
+    </section>
+
+    <!-- Loading -->
+    <section id="loadingView" class="loading-view" hidden>
+      <div class="spinner"></div>
+      <p id="loadingMsg">Unzipping…</p>
+    </section>
+
+    <!-- Results -->
+    <section id="dexView" class="dex-view" hidden>
+      <div class="dex-meta" id="dexMeta"></div>
+      <div class="grid" id="grid"></div>
+      <p class="empty" id="emptyMsg" hidden>No fakemon match your filters.</p>
+    </section>
+  </main>
+
+  <!-- Detail drawer -->
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <aside class="drawer-panel" id="drawerPanel" role="dialog" aria-modal="true"></aside>
+  </div>
+
+  <footer class="footer">
+    <span>Fakédex · parsed locally in your browser</span>
+    <span id="footStatus"></span>
+  </footer>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+
+  <script src="vendor/fflate.js"></script>
+  <script src="data/base-moves.js"></script>
+  <script src="data/base-abilities.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
