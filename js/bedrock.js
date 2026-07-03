@@ -27,17 +27,6 @@
     const y0 = oy - pivot[1], y1 = oy + h - pivot[1];
     const z0 = oz - pivot[2], z1 = oz + d - pivot[2];
 
-    // Per-face vertex quads (counter-clockwise when viewed from outside).
-    // Order: east(+X) west(-X) up(+Y) down(-Y) south(+Z) north(-Z)
-    const faces = {
-      east:  [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]],
-      west:  [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
-      up:    [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]],
-      down:  [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
-      south: [[x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [x0, y0, z1]],
-      north: [[x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]],
-    };
-
     // UV rectangles [uStart, vStart, uSize, vSize] in pixels (v from top).
     let rects;
     if (Array.isArray(cube.uv)) {
@@ -61,33 +50,45 @@
       rects = { east: r('east'), west: r('west'), up: r('up'), down: r('down'), south: r('south'), north: r('north') };
     }
 
-    const mirror = !!cube.mirror;
+    // Each face defined by its texture top-left corner (tl) in 3D plus the edge
+    // vectors toward texture-right (ue) and texture-down (ve). This keeps the
+    // per-vertex UV assignment consistent regardless of face — the bug before
+    // was a fixed UV winding applied to inconsistently-ordered vertices.
+    const faces = {
+      up:    { n: [0, 1, 0],  tl: [x0, y1, z0], ue: [x1 - x0, 0, 0], ve: [0, 0, z1 - z0] },
+      down:  { n: [0, -1, 0], tl: [x0, y0, z1], ue: [x1 - x0, 0, 0], ve: [0, 0, z0 - z1] },
+      north: { n: [0, 0, -1], tl: [x1, y1, z0], ue: [x0 - x1, 0, 0], ve: [0, y0 - y1, 0] },
+      south: { n: [0, 0, 1],  tl: [x0, y1, z1], ue: [x1 - x0, 0, 0], ve: [0, y0 - y1, 0] },
+      east:  { n: [1, 0, 0],  tl: [x1, y1, z1], ue: [0, 0, z0 - z1], ve: [0, y0 - y1, 0] },
+      west:  { n: [-1, 0, 0], tl: [x0, y1, z0], ue: [0, 0, z1 - z0], ve: [0, y0 - y1, 0] },
+    };
 
+    const mirror = !!cube.mirror;
     const positions = [];
     const uvs = [];
     const normals = [];
     const indices = [];
-    const faceNormals = {
-      east: [1, 0, 0], west: [-1, 0, 0], up: [0, 1, 0],
-      down: [0, -1, 0], south: [0, 0, 1], north: [0, 0, -1],
-    };
 
     let vi = 0;
     for (const fname in faces) {
-      const quad = faces[fname];
+      const f = faces[fname];
       const rect = rects[fname];
-      let uS = rect[0], vS = rect[1], uW = rect[2], vH = rect[3];
-      // Normalize to 0..1 with V measured from the bottom for three.js.
+      const uS = rect[0], vS = rect[1], uW = rect[2], vH = rect[3];
       let uL = uS / texW, uR = (uS + uW) / texW;
-      const vT = 1 - vS / texH, vB = 1 - (vS + vH) / texH;
+      const vTop = 1 - vS / texH, vBot = 1 - (vS + vH) / texH;
       if (mirror) { const t = uL; uL = uR; uR = t; }
-      // Quad UVs matching the vertex winding (BL, BR, TR, TL).
-      const quadUV = [[uL, vB], [uR, vB], [uR, vT], [uL, vT]];
-      const n = faceNormals[fname];
+      const tl = f.tl, ue = f.ue, ve = f.ve;
+      // Corners: TL, TR (tl+ue), BR (tl+ue+ve), BL (tl+ve).
+      const corners = [
+        [tl[0], tl[1], tl[2], uL, vTop],
+        [tl[0] + ue[0], tl[1] + ue[1], tl[2] + ue[2], uR, vTop],
+        [tl[0] + ue[0] + ve[0], tl[1] + ue[1] + ve[1], tl[2] + ue[2] + ve[2], uR, vBot],
+        [tl[0] + ve[0], tl[1] + ve[1], tl[2] + ve[2], uL, vBot],
+      ];
       for (let k = 0; k < 4; k++) {
-        positions.push(quad[k][0], quad[k][1], quad[k][2]);
-        uvs.push(quadUV[k][0], quadUV[k][1]);
-        normals.push(n[0], n[1], n[2]);
+        positions.push(corners[k][0], corners[k][1], corners[k][2]);
+        uvs.push(corners[k][3], corners[k][4]);
+        normals.push(f.n[0], f.n[1], f.n[2]);
       }
       indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
       vi += 4;
