@@ -40,7 +40,87 @@
     mrPct: $('mrPct'),
   };
 
-  let state = { entries: [], byId: {}, filtered: [], customMoves: {}, customAbilities: {} };
+  let state = {
+    entries: [], byId: {}, filtered: [], customMoves: {}, customAbilities: {},
+    sprites: { models: {}, textures: {}, byId: {} },
+  };
+
+  // ---- sprite rendering (lazy, one at a time on a shared WebGL context) -----
+
+  const spriteCache = {};     // id -> dataURL | 'failed'
+  const spriteQueue = [];
+  let spriteBusy = false;
+  let spriteObserver = null;
+
+  function hasSprite(id) {
+    return !!(window.Sprite && window.THREE && state.sprites.byId[id]);
+  }
+
+  function spriteSrc(id) {
+    const v = spriteCache[id];
+    return v && v !== 'failed' ? v : '';
+  }
+
+  async function renderSprite(id) {
+    const spec = state.sprites.byId[id];
+    if (!spec) return null;
+    const model = state.sprites.models[spec.modelRef];
+    if (!model) return null;
+    const textures = spec.texturePaths
+      .map(function (p) { return state.sprites.textures[p]; })
+      .filter(Boolean);
+    if (!textures.length) return null;
+    return window.Sprite.render({ model: model, textures: textures });
+  }
+
+  function enqueueSprite(id) {
+    if (spriteCache[id] || !hasSprite(id)) return;
+    spriteCache[id] = 'pending';
+    spriteQueue.push(id);
+    pumpSpriteQueue();
+  }
+
+  async function pumpSpriteQueue() {
+    if (spriteBusy) return;
+    spriteBusy = true;
+    while (spriteQueue.length) {
+      const id = spriteQueue.shift();
+      let url = null;
+      try { url = await renderSprite(id); } catch (e) { console.warn('sprite failed', id, e); }
+      spriteCache[id] = url || 'failed';
+      if (url) {
+        const imgs = document.querySelectorAll('img[data-sprite-id="' + cssEsc(id) + '"]');
+        imgs.forEach(function (img) { img.src = url; img.classList.add('loaded'); });
+      }
+      // Yield so the UI stays responsive between renders.
+      await new Promise(function (r) { setTimeout(r, 0); });
+    }
+    spriteBusy = false;
+  }
+
+  function cssEsc(s) {
+    return String(s).replace(/["\\]/g, '\\$&');
+  }
+
+  function observeSprites() {
+    if (spriteObserver) spriteObserver.disconnect();
+    if (!('IntersectionObserver' in window)) {
+      // No IO — just enqueue everything.
+      state.filtered.forEach(function (e) { enqueueSprite(e.id); });
+      return;
+    }
+    spriteObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (ent) {
+        if (ent.isIntersecting) {
+          enqueueSprite(ent.target.dataset.id);
+          spriteObserver.unobserve(ent.target);
+        }
+      });
+    }, { root: null, rootMargin: '200px' });
+    document.querySelectorAll('.card[data-id]').forEach(function (card) {
+      if (hasSprite(card.dataset.id) && !spriteSrc(card.dataset.id)) spriteObserver.observe(card);
+    });
+  }
 
   // ---- move / ability resolution -----------------------------------------
   // Merge order: pack-defined data > bundled base (Showdown) data > prettified id.
@@ -108,9 +188,19 @@
       typeColor(e.secondaryType || e.primaryType) + '22)';
     const tag = e.kind !== 'species'
       ? '<span class="card-kind">' + esc(e.formName || cap(e.kind)) + '</span>' : '';
+    let art;
+    if (hasSprite(e.id)) {
+      const src = spriteSrc(e.id);
+      art = '<div class="card-art"><img class="card-sprite' + (src ? ' loaded' : '') +
+        '" data-sprite-id="' + esc(e.id) + '"' + (src ? ' src="' + src + '"' : '') +
+        ' alt="" loading="lazy"></div>';
+    } else {
+      art = '<div class="card-art card-art-empty">◓</div>';
+    }
     return (
       '<button class="card" data-id="' + esc(e.id) + '" style="--grad:' + grad + '">' +
         '<div class="card-top"><span class="dexno">' + num + '</span>' + tag + '</div>' +
+        art +
         '<div class="card-name">' + esc(e.name) + '</div>' +
         '<div class="card-types">' + typeBadges(e) + '</div>' +
         '<div class="card-bst">BST <b>' + e.statTotal + '</b></div>' +
@@ -122,6 +212,7 @@
     const list = state.filtered;
     el.grid.innerHTML = list.map(cardHTML).join('');
     el.emptyMsg.hidden = list.length !== 0;
+    observeSprites();
   }
 
   // ---- filtering ----------------------------------------------------------
@@ -243,10 +334,16 @@
 
   function drawerHTML(e) {
     const num = e.dexNumber != null ? '#' + String(e.dexNumber).padStart(3, '0') : '';
+    const artSrc = spriteSrc(e.id);
+    const art = hasSprite(e.id)
+      ? '<img class="d-sprite' + (artSrc ? ' loaded' : '') + '" data-sprite-id="' + esc(e.id) + '"' +
+        (artSrc ? ' src="' + artSrc + '"' : '') + ' alt="">'
+      : '';
     const header =
       '<div class="d-head" style="background:linear-gradient(135deg,' +
         typeColor(e.primaryType) + ',' + typeColor(e.secondaryType || e.primaryType) + ')">' +
         '<button class="d-close" id="drawerClose" aria-label="Close">✕</button>' +
+        art +
         '<div class="d-dexno">' + num + '</div>' +
         '<div class="d-name">' + esc(e.name) + '</div>' +
         '<div class="d-types">' + typeBadges(e) + '</div>' +
@@ -300,6 +397,16 @@
     el.drawerPanel.scrollTop = 0;
     const close = $('drawerClose');
     if (close) close.addEventListener('click', closeDrawer);
+    // Prioritise the open mon's sprite if it isn't ready yet.
+    if (hasSprite(id) && !spriteSrc(id)) {
+      if (spriteCache[id] === 'pending') {
+        const i = spriteQueue.indexOf(id);
+        if (i > 0) { spriteQueue.splice(i, 1); spriteQueue.unshift(id); }
+      } else {
+        delete spriteCache[id];
+        enqueueSprite(id);
+      }
+    }
   }
 
   function closeDrawer() {
@@ -313,6 +420,7 @@
     state.entries = result.entries;
     state.customMoves = result.customMoves || {};
     state.customAbilities = result.customAbilities || {};
+    state.sprites = result.sprites || { models: {}, textures: {}, byId: {} };
     state.byId = {};
     for (const e of result.entries) state.byId[e.id] = e;
 

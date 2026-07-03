@@ -13,30 +13,25 @@
 
   // ---- low-level: unzip an ArrayBuffer into { path: Uint8Array } -----------
 
-  function unzip(arrayBuffer) {
+  // Unzip only entries matching `filterFn` (keeps us from inflating the whole
+  // archive — mostly textures/sounds/models we don't all need).
+  function unzip(arrayBuffer, filterFn) {
     return new Promise(function (resolve, reject) {
-      const data = new Uint8Array(arrayBuffer);
-      // fflate.unzip is async + worker-friendly; filter to just the files we
-      // care about so we don't inflate megabytes of textures/models/sounds.
       fflate.unzip(
-        data,
-        {
-          filter: function (file) {
-            const n = file.name;
-            return (
-              /(^|\/)data\/[^/]+\/species(_additions)?\//.test(n) &&
-              n.endsWith('.json')
-            ) ||
-              /(^|\/)data\/[^/]+\/moves\/.+\.js(on)?$/.test(n) ||
-              /(^|\/)assets\/[^/]+\/lang\/en_us\.json$/.test(n);
-          },
-        },
-        function (err, unzipped) {
-          if (err) reject(err);
-          else resolve(unzipped);
-        }
+        new Uint8Array(arrayBuffer),
+        { filter: function (file) { return filterFn(file.name); } },
+        function (err, unzipped) { if (err) reject(err); else resolve(unzipped); }
       );
     });
+  }
+
+  function isDataFile(n) {
+    return (
+      (/(^|\/)data\/[^/]+\/species(_additions)?\//.test(n) && n.endsWith('.json')) ||
+      /(^|\/)data\/[^/]+\/moves\/.+\.js(on)?$/.test(n) ||
+      /(^|\/)assets\/[^/]+\/lang\/en_us\.json$/.test(n) ||
+      /(^|\/)assets\/[^/]+\/bedrock\/pokemon\/(models|resolvers|posers)\/.+\.json$/.test(n)
+    );
   }
 
   const decoder = new TextDecoder('utf-8');
@@ -204,6 +199,8 @@
       evolutions: Array.isArray(obj.evolutions) ? obj.evolutions : [],
       forms: Array.isArray(obj.forms) ? obj.forms.map(function (f) { return f.name; }).filter(Boolean) : [],
       labels: Array.isArray(obj.labels) ? obj.labels : [],
+      aspects: Array.isArray(obj.aspects) ? obj.aspects : [],
+      speciesName: (opts.baseName || obj.name || name).toLowerCase().replace(/[^a-z0-9]/g, ''),
       description: resolveDesc(obj.pokedex, lang),
       catchRate: obj.catchRate ?? null,
       experienceGroup: obj.experienceGroup || null,
@@ -218,10 +215,69 @@
     };
   }
 
+  // ---- sprite resolution (bedrock models + resolvers) ---------------------
+
+  // Cobblemon texture refs are usually a string, but can be an array of options
+  // (random) or a molang object — normalise to a single string ref.
+  function normalizeRef(ref) {
+    if (Array.isArray(ref)) return normalizeRef(ref[0]);
+    return typeof ref === 'string' ? ref : null;
+  }
+
+  // "cobblemon:textures/pokemon/x/y.png" -> "assets/cobblemon/textures/pokemon/x/y.png"
+  function refToAssetPath(ref) {
+    ref = normalizeRef(ref);
+    if (!ref) return null;
+    const i = ref.indexOf(':');
+    if (i === -1) return 'assets/cobblemon/' + ref;
+    return 'assets/' + ref.slice(0, i) + '/' + ref.slice(i + 1);
+  }
+
+  // Pick the resolver variation that best matches an entry's aspects: all of the
+  // variation's aspects must be present, and among those we take the most specific.
+  function matchVariation(variations, aspects) {
+    const set = {};
+    aspects.forEach(function (a) { set[a] = true; });
+    let best = null, bestScore = -1;
+    for (const v of variations) {
+      const va = v.aspects || [];
+      if (va.every(function (a) { return set[a]; }) && va.length > bestScore) {
+        best = v; bestScore = va.length;
+      }
+    }
+    return best;
+  }
+
+  // Build { models, textures(paths only), byId } from the bedrock files. Returns
+  // the set of texture paths still to extract (done in a second unzip pass).
+  function buildSpriteIndex(files) {
+    const modelsByRef = {};   // "ns:name.geo" -> geoJson
+    const resolversBySpecies = {}; // speciesKey -> [variations...]
+
+    for (const path in files) {
+      let m = path.match(/(^|\/)assets\/([^/]+)\/bedrock\/pokemon\/models\/(.+)\.json$/);
+      if (m) {
+        try { modelsByRef[m[2] + ':' + m[3]] = JSON.parse(text(files[path])); }
+        catch (e) { /* skip bad model */ }
+        continue;
+      }
+      m = path.match(/(^|\/)assets\/[^/]+\/bedrock\/pokemon\/resolvers\/.+\.json$/);
+      if (m) {
+        try {
+          const r = JSON.parse(text(files[path]));
+          const key = (r.species || '').split(':').pop().replace(/[^a-z0-9]/g, '');
+          if (!resolversBySpecies[key]) resolversBySpecies[key] = [];
+          (r.variations || []).forEach(function (v) { resolversBySpecies[key].push(v); });
+        } catch (e) { /* skip bad resolver */ }
+      }
+    }
+    return { modelsByRef: modelsByRef, resolversBySpecies: resolversBySpecies };
+  }
+
   // ---- top level: archive -> { entries, meta, warnings } ------------------
 
   async function parseArchive(arrayBuffer, fileName) {
-    const files = await unzip(arrayBuffer);
+    const files = await unzip(arrayBuffer, isDataFile);
     const lang = collectLang(files);
     const entries = [];
     const warnings = [];
@@ -317,7 +373,48 @@
       return a.name.localeCompare(b.name);
     });
 
+    // Resolve a renderable model + textures for each entry, where the pack ships
+    // one. (Forms of vanilla mons often reuse base-Cobblemon models we don't have.)
+    const sprIdx = buildSpriteIndex(files);
+    const spriteById = {};
+    const neededTextures = {};
+    for (const entry of entries) {
+      const variations = sprIdx.resolversBySpecies[entry.speciesName];
+      if (!variations || !variations.length) continue;
+      const baseVar = variations.find(function (v) { return !(v.aspects && v.aspects.length); }) || variations[0];
+      const matched = matchVariation(variations, entry.aspects) || baseVar;
+      const modelRef = normalizeRef(matched.model || baseVar.model);
+      const layers = matched.layers || baseVar.layers || [];
+      const basePath = refToAssetPath(matched.texture || baseVar.texture);
+      if (!modelRef || !basePath || !sprIdx.modelsByRef[modelRef]) continue;
+      const texPaths = [basePath];
+      layers.forEach(function (l) {
+        const p = l && l.texture ? refToAssetPath(l.texture) : null;
+        if (p) texPaths.push(p);
+      });
+      texPaths.forEach(function (p) { neededTextures[p] = true; });
+      spriteById[entry.id] = { modelRef: modelRef, texturePaths: texPaths };
+    }
+
+    // Second unzip pass: pull just the texture PNGs the sprites reference. A
+    // failure here only costs sprites, never the rest of the dex.
+    let textures = {};
+    if (Object.keys(neededTextures).length) {
+      try {
+        textures = await unzip(arrayBuffer, function (n) { return neededTextures[n] === true; });
+      } catch (e) {
+        warnings.push('Could not extract sprite textures: ' + e.message);
+      }
+    }
+
+    const sprites = {
+      models: sprIdx.modelsByRef,
+      textures: textures,
+      byId: spriteById,
+    };
+
     return {
+      sprites: sprites,
       entries: entries,
       warnings: warnings,
       customMoves: customMoves,
@@ -329,6 +426,7 @@
         entryCount: entries.length,
         langKeys: Object.keys(lang).length,
         customMoves: Object.keys(customMoves).length,
+        spriteCount: Object.keys(spriteById).length,
       },
       lang: lang,
     };

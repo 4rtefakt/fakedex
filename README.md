@@ -65,12 +65,15 @@ Then drop `samples/lasers-fakemon-pack/lasers-fakemon-pack-1.6.jar` onto the pag
 index.html               # page shell
 styles.css               # styling
 vendor/fflate.js         # unzip library (vendored, no CDN)
+vendor/three.min.js      # three.js (vendored) for bedrock model rendering
 data/base-moves.js       # bundled Showdown move metadata (generated)
 data/base-abilities.js   # bundled Showdown ability metadata (generated)
 js/constants.js          # type/category colors, slugs, prettifiers
 js/parser.js             # archive -> normalized dex + custom move/ability data
 js/modrinth.js           # Modrinth API: resolve project, list versions, download
-js/app.js                # drag/drop, grid, filters, detail drawer, tooltips
+js/bedrock.js            # bedrock .geo.json -> THREE.Group
+js/sprite.js             # render a model to a PNG data URL
+js/app.js                # drag/drop, grid, filters, detail drawer, tooltips, sprites
 scripts/build-base-data.js  # regenerates the bundled data/ files
 server.js                # dev static server
 samples/                 # sample packs for testing
@@ -97,13 +100,30 @@ It's **fully client-side**: both `api.modrinth.com` and `cdn.modrinth.com` send
 a streamed download + progress bar) — no proxy or backend required. See
 `js/modrinth.js`.
 
+## Sprites
+
+Packs don't ship flat sprites — Cobblemon renders **Minecraft bedrock models**
+(`.geo.json` cubes + textures, tied together by resolvers and posers). Fakédex
+renders them itself:
+
+- `js/bedrock.js` parses the geometry (bones, pivots, rotations, cubes with
+  box/per-face UV, inflate, mirror) into a `THREE.Group`.
+- `js/sprite.js` frames the model with an orthographic camera and snapshots it to
+  a PNG data URL on a single shared WebGL context.
+- The parser resolves each entry's model + textures via the pack's resolvers
+  (matching aspects for forms) and extracts just those PNGs in a second unzip pass.
+- The grid renders thumbnails lazily as cards scroll into view (IntersectionObserver,
+  one render at a time to stay smooth); the detail drawer shows a larger portrait.
+
+Entries whose model isn't in the pack (e.g. forms of vanilla mons that reuse
+base-Cobblemon models) fall back to a placeholder. For Laser's pack that's all
+69 species + 122/130 forms rendered.
+
 ## Roadmap
 
 Done: local viewer, resolved move/ability data, Cloudflare Pages hosting,
-Modrinth integration. Planned next:
+Modrinth integration, in-browser 3D sprites. Planned next:
 
-- **Sprites.** Packs ship 3D bedrock models, not flat sprites, so rendering a
-  portrait means either rendering the model or generating thumbnails offline.
 - **Shared database.** Cache parsed results keyed by a mod hash/signature so the
   same pack version isn't re-parsed by everyone; build a global index of every
   fakemon and which pack it belongs to. (This is the point where a Cloudflare
