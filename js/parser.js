@@ -268,7 +268,11 @@
       if (m) {
         try {
           const geo = JSON.parse(text(files[path]));
-          modelsByRef[m[2] + ':' + m[3]] = geo;
+          // Cobblemon resolves a model ref ("cobblemon:magmecko.geo") by file
+          // basename, not by subdir or the geometry identifier inside (which is
+          // often the modeler's original Blockbench name).
+          const stem = m[3].split('/').pop();
+          modelsByRef[m[2] + ':' + stem] = geo;
           const list = geo['minecraft:geometry'];
           if (Array.isArray(list)) {
             list.forEach(function (g) {
