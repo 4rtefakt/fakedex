@@ -404,6 +404,103 @@
     return '<div class="d-block"><h3>Spawns</h3>' + rows + '</div>';
   }
 
+  // ---- evolution chains ---------------------------------------------------
+
+  let evoIndex = null;
+  function normId(s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+  function buildEvoIndex() {
+    const byName = {};  // normalized species/name -> entry
+    const preEvo = {};  // normalized result-base -> [{ from, ev }]
+    for (const e of state.entries) {
+      const oid = normId(e._oid || e.id);
+      if (!byName[oid] || e.kind === 'species') byName[oid] = e;
+      const nk = normId(e.name);
+      if (!byName[nk]) byName[nk] = e;
+    }
+    for (const e of state.entries) {
+      (e.evolutions || []).forEach(function (ev) {
+        if (!ev || !ev.result) return;
+        const base = normId(String(ev.result).split(/\s+/)[0]);
+        (preEvo[base] = preEvo[base] || []).push({ from: e, ev: ev });
+      });
+    }
+    return { byName: byName, preEvo: preEvo };
+  }
+  function getEvoIndex() { if (!evoIndex) evoIndex = buildEvoIndex(); return evoIndex; }
+
+  function prettyItem(id) {
+    return cap(String(id).split(':').pop().replace(/[_-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }));
+  }
+  function prettyProps(t) {
+    const s = String(t);
+    if (/gender=male/i.test(s)) return 'Male';
+    if (/gender=female/i.test(s)) return 'Female';
+    return prettify(s.replace(/^\S+\s+/, ''));
+  }
+
+  function evoRequirement(ev) {
+    const parts = [];
+    if (ev.variant === 'trade') parts.push('Trade');
+    if (ev.variant === 'item_interact' && ev.requiredContext) parts.push(prettyItem(ev.requiredContext));
+    (ev.requirements || []).forEach(function (r) {
+      switch (r.variant) {
+        case 'level': if (r.minLevel != null) parts.push('Lv ' + r.minLevel); break;
+        case 'friendship': parts.push('Friendship'); break;
+        case 'held_item': parts.push('hold ' + prettyItem(r.itemCondition)); break;
+        case 'time_range': parts.push(cap(r.range)); break;
+        case 'moon_phase': parts.push(prettify(r.moonPhase)); break;
+        case 'use_move': parts.push('use ' + prettify(r.move) + (r.amount ? ' ×' + r.amount : '')); break;
+        case 'has_move': parts.push('knows ' + prettify(r.move)); break;
+        case 'has_move_type': parts.push(cap(r.type) + ' move'); break;
+        case 'properties': parts.push(prettyProps(r.target)); break;
+        case 'battle_critical_hits': parts.push(r.amount + ' crits'); break;
+        case 'damage_taken': parts.push(r.amount + ' dmg taken'); break;
+        default: break; // biome / stat_compare / etc. omitted for brevity
+      }
+    });
+    if (!parts.length) parts.push(cap(String(ev.variant || 'evolve').replace(/_/g, ' ')));
+    return parts.join(' · ');
+  }
+
+  function resolveResult(result) {
+    const idx = getEvoIndex();
+    return idx.byName[normId(String(result).split(/\s+/)[0])] || idx.byName[normId(result)] || null;
+  }
+
+  function monChip(entry, fallbackName) {
+    const name = entry ? entry.name : cap(prettify(String(fallbackName).split(/\s+/)[0]));
+    const src = entry ? spriteSrc(entry.id) : '';
+    const img = entry && hasSprite(entry.id)
+      ? '<img class="evo-sprite' + (src ? ' loaded' : '') + '"' + (src ? ' src="' + src + '"' : '') + ' data-sprite-id="' + esc(entry.id) + '" alt="">'
+      : '<span class="evo-sprite ph">◓</span>';
+    if (entry) {
+      return '<button class="evo-chip" data-uid="' + esc(entry.id) + '">' + img + '<span>' + esc(name) + '</span></button>';
+    }
+    return '<span class="evo-chip disabled">' + img + '<span>' + esc(name) + '</span></span>';
+  }
+
+  function arrow(req) { return '<span class="evo-arrow">→<b>' + esc(req) + '</b>→</span>'; }
+
+  function evoSection(e) {
+    const idx = getEvoIndex();
+    const pre = idx.preEvo[normId(e._oid || e.id)] || [];
+    const into = e.evolutions || [];
+    if (!pre.length && !into.length) return '';
+    const self = '<span class="evo-chip current">' +
+      (hasSprite(e.id) ? '<img class="evo-sprite' + (spriteSrc(e.id) ? ' loaded' : '') + '"' +
+        (spriteSrc(e.id) ? ' src="' + spriteSrc(e.id) + '"' : '') + ' data-sprite-id="' + esc(e.id) + '" alt="">' : '<span class="evo-sprite ph">◓</span>') +
+      '<span>' + esc(e.name) + '</span></span>';
+    const rows = [];
+    pre.forEach(function (p) {
+      rows.push('<div class="evo-row">' + monChip(p.from) + arrow(evoRequirement(p.ev)) + self + '</div>');
+    });
+    into.forEach(function (ev) {
+      rows.push('<div class="evo-row">' + self + arrow(evoRequirement(ev)) + monChip(resolveResult(ev.result), ev.result) + '</div>');
+    });
+    return '<div class="d-block"><h3>Evolution</h3><div class="evo">' + rows.join('') + '</div></div>';
+  }
+
   function abilityHTML(a) {
     const info = resolveAbility(a.name);
     const attrs =
@@ -481,8 +578,9 @@
 
     const moves = '<div class="d-block"><h3>Moves</h3>' + movesSection(e.moves) + '</div>';
     const spawns = spawnsSection(e.spawns);
+    const evo = evoSection(e);
 
-    return header + '<div class="d-body">' + desc + abilities + eggs + spawns + stats + meta + forms + moves + '</div>';
+    return header + '<div class="d-body">' + desc + abilities + eggs + evo + spawns + stats + meta + forms + moves + '</div>';
   }
 
   // ---- deep links (#mon=<id>&pack=<slug>) ---------------------------------
@@ -585,6 +683,7 @@
     }
     state.entries = state.entries.concat(entries);
     state.entries.sort(sortEntries);
+    evoIndex = null; // entries changed — rebuild the evolution index lazily
     state.sources.push({ name: display, count: entries.length, warnings: (warnings || []).length });
     rebuildFilters();
     return display;
@@ -1008,6 +1107,10 @@
   el.dexMeta.addEventListener('click', function (e) {
     const btn = e.target.closest('.pub-btn');
     if (btn) publishNow(btn.dataset.pub);
+  });
+  el.drawerPanel.addEventListener('click', function (e) {
+    const chip = e.target.closest('.evo-chip[data-uid]');
+    if (chip) openDrawer(chip.dataset.uid);
   });
   el.drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', function (e) {

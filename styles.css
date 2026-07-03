@@ -398,6 +398,23 @@ a.move-row:hover .mv-ext { opacity: 1; }
 
 .muted { color: var(--muted); }
 
+/* ---- evolution ---- */
+.evo { display: flex; flex-direction: column; gap: 8px; }
+.evo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.evo-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 12px 4px 4px; cursor: pointer; color: var(--text); font: inherit; font-size: 13px; font-weight: 600;
+}
+.evo-chip:hover:not(.disabled) { border-color: var(--accent-2); background: var(--panel-2); }
+.evo-chip.disabled { cursor: default; opacity: .7; }
+.evo-chip.current { cursor: default; border-color: var(--accent); background: var(--panel-2); }
+.evo-sprite { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; flex: 0 0 auto; }
+.evo-sprite.ph { display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgba(255,255,255,.15); }
+.evo-arrow { color: var(--muted); font-size: 12px; }
+.evo-arrow b { color: var(--accent-2); font-weight: 600; }
+.evo-this { color: var(--muted); font-size: 12px; font-style: italic; }
+
 /* ---- spawns ---- */
 .spawn {
   border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; margin-bottom: 10px;
