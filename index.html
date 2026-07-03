@@ -19,6 +19,7 @@
       <input id="search" type="search" placeholder="Search name, type, ability, egg group…" autocomplete="off" />
       <select id="sourceFilter" aria-label="Filter by source"><option value="">All sources</option></select>
       <select id="typeFilter" aria-label="Filter by type"><option value="">All types</option></select>
+      <button id="randomBtn" class="ghost" title="Open a random Pokémon">🎲</button>
       <button id="shinyBtn" class="ghost" title="Toggle shiny sprites" aria-pressed="false">✦ Shiny</button>
       <button id="sharedBtn" class="ghost" title="Browse the shared community dex" hidden>🌐 Shared dex</button>
       <button id="addPackBtn" class="ghost accent" title="Add a fakemon pack">＋ Add pack</button>
@@ -89,6 +90,26 @@
       <p class="empty" id="emptyMsg" hidden>No fakemon match your filters.</p>
     </section>
   </main>
+
+  <!-- Compare tray -->
+  <div id="compareTray" class="compare-tray" hidden>
+    <span class="ct-label">Compare</span>
+    <div class="ct-items" id="ctItems"></div>
+    <button id="ctCompare" class="ct-btn">Compare</button>
+    <button id="ctClear" class="ct-clear" title="Clear">✕</button>
+  </div>
+
+  <!-- Compare modal -->
+  <div id="compareModal" class="modal" hidden>
+    <div class="modal-backdrop" id="compareBackdrop"></div>
+    <div class="modal-panel compare-panel" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2>Compare</h2>
+        <button class="modal-close" id="compareClose" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="compareBody"></div>
+    </div>
+  </div>
 
   <!-- Shared dex modal -->
   <div id="sharedModal" class="modal" hidden>
