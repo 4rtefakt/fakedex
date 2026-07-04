@@ -18,9 +18,17 @@ export async function onRequestPost({ request, env }) {
   if (!Array.isArray(body.entries) || !body.entries.length) return bad('No entries provided.');
   if (body.entries.length > MAX_ENTRIES) return bad('Too many entries.');
 
-  // Dedup: same pack version is only stored once.
-  const existing = await db.prepare('SELECT hash FROM packs WHERE hash = ?').bind(body.hash).first();
-  if (existing) return json({ status: 'exists', hash: body.hash });
+  // Dedup: same pack version is only stored once. If it was first published
+  // without a Modrinth slug (e.g. dropped as a file) and we now know one,
+  // backfill it so the pack gets a gallery Load button + link previews.
+  const existing = await db.prepare('SELECT hash, modrinth_slug FROM packs WHERE hash = ?').bind(body.hash).first();
+  if (existing) {
+    const slug = str(body.modrinthSlug, 120);
+    if (slug && !existing.modrinth_slug) {
+      try { await db.prepare('UPDATE packs SET modrinth_slug = ? WHERE hash = ?').bind(slug, body.hash).run(); } catch (e) { /* best effort */ }
+    }
+    return json({ status: 'exists', hash: body.hash });
+  }
 
   const now = Date.now();
   let speciesCount = 0;
