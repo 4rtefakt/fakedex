@@ -42,6 +42,7 @@ export async function onRequestPost({ request, env }) {
       kind,
       abilities: Array.isArray(e.abilities) ? e.abilities.map(function (a) { return str(a, 40); }).filter(Boolean).join(',').slice(0, 400) : '',
       egg_groups: Array.isArray(e.eggGroups) ? e.eggGroups.map(function (g) { return str(g, 40); }).filter(Boolean).join(',').slice(0, 200) : '',
+      thumb: str(e.thumb, 200000),
     });
   }
   if (!rows.length) return bad('No valid entries.');
@@ -57,12 +58,12 @@ export async function onRequestPost({ request, env }) {
     )
   );
   const insEntry = db.prepare(
-    'INSERT OR REPLACE INTO fakemon (pack_hash, entry_id, name, name_lower, dex_number, primary_type, secondary_type, bst, kind, abilities, egg_groups) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+    'INSERT OR REPLACE INTO fakemon (pack_hash, entry_id, name, name_lower, dex_number, primary_type, secondary_type, bst, kind, abilities, egg_groups, thumb) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
   );
   for (const r of rows) {
     stmts.push(insEntry.bind(
       body.hash, r.entry_id, r.name, r.name_lower, r.dex_number,
-      r.primary_type, r.secondary_type, r.bst, r.kind, r.abilities, r.egg_groups
+      r.primary_type, r.secondary_type, r.bst, r.kind, r.abilities, r.egg_groups, r.thumb
     ));
   }
 

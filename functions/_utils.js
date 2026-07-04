@@ -30,7 +30,7 @@ export async function ensureSchema(db) {
     db.prepare(
       'CREATE TABLE IF NOT EXISTS fakemon (pack_hash TEXT NOT NULL, entry_id TEXT NOT NULL, ' +
       'name TEXT NOT NULL, name_lower TEXT NOT NULL, dex_number INTEGER, primary_type TEXT, ' +
-      'secondary_type TEXT, bst INTEGER, kind TEXT, abilities TEXT, egg_groups TEXT, ' +
+      'secondary_type TEXT, bst INTEGER, kind TEXT, abilities TEXT, egg_groups TEXT, thumb TEXT, ' +
       'PRIMARY KEY (pack_hash, entry_id))'
     ),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_fakemon_name ON fakemon(name_lower)'),
@@ -38,6 +38,9 @@ export async function ensureSchema(db) {
     db.prepare('CREATE INDEX IF NOT EXISTS idx_fakemon_pack ON fakemon(pack_hash)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_packs_slug ON packs(modrinth_slug)'),
   ]);
+  // Migration for DBs created before the `thumb` column existed (idempotent —
+  // ALTER throws "duplicate column" once present, which we swallow).
+  try { await db.prepare('ALTER TABLE fakemon ADD COLUMN thumb TEXT').run(); } catch (e) { /* already there */ }
   schemaReady = true;
 }
 

@@ -64,11 +64,24 @@
     return r.json(); // { packs, totals }
   }
 
+  // Backfill sprite thumbnails for an already-published pack.
+  // thumbs: { entryId: base64Webp }.
+  async function putThumbs(hash, thumbs) {
+    const r = await fetch('/api/thumb', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ hash: hash, thumbs: thumbs }),
+    });
+    if (!r.ok) throw new Error('Thumbnail upload failed (' + r.status + ').');
+    return r.json();
+  }
+
   global.SharedDex = {
     hashBuffer: hashBuffer,
     buildPayload: buildPayload,
     publish: publish,
     search: search,
     listPacks: listPacks,
+    putThumbs: putThumbs,
   };
 })(window);
