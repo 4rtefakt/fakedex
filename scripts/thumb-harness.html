@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fakédex thumbnail render harness</title>
+</head>
+<body>
+  <!-- Loaded by scripts/build-thumbnails.js in headless Chrome. Reuses the exact
+       in-browser sprite pipeline (Bedrock + Sprite.render) so pre-rendered
+       thumbnails are pixel-identical to live-baked ones. Not shipped. -->
+  <script src="/vendor/fflate.js"></script>
+  <script src="/vendor/three.min.js"></script>
+  <script src="/js/molang.js"></script>
+  <script src="/js/bedrock.js"></script>
+  <script src="/js/sprite.js"></script>
+  <script src="/data/base-sprites.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const CELL = 96, COLS = 20, ROWS = 20, PER_PAGE = COLS * ROWS;
+
+    function refToModelPath(ref) {
+      const i = ref.indexOf(':');
+      const ns = i === -1 ? 'cobblemon' : ref.slice(0, i);
+      const name = i === -1 ? ref : ref.slice(i + 1);
+      return 'assets/' + ns + '/bedrock/pokemon/models/' + name + '.json';
+    }
+
+    const S = window.BASE_SPRITES;
+    let files = null;
+    let ids = [];
+    const pages = {}; // page index -> { canvas, ctx }
+
+    window.__meta = { cell: CELL, cols: COLS, rows: ROWS, perPage: PER_PAGE,
+      version: S.assetVersion || S.version };
+
+    window.__ready = (async function () {
+      const res = await fetch('/assets/cobblemon-base.zip');
+      const ab = await res.arrayBuffer();
+      files = window.fflate.unzipSync(new Uint8Array(ab));
+      // Render in a stable order so the atlas index is deterministic.
+      ids = Object.keys(S.byId).filter(function (id) {
+        const spec = S.byId[id];
+        return !!files[refToModelPath(spec.modelRef)];
+      }).sort();
+      window.__ids = ids;
+      return ids.length;
+    })();
+
+    function specFor(id) {
+      const spec = S.byId[id];
+      const modelPath = refToModelPath(spec.modelRef);
+      const modelBytes = files[modelPath];
+      if (!modelBytes) return null;
+      const model = JSON.parse(new TextDecoder().decode(modelBytes));
+      const textures = (spec.texturePaths || [])
+        .map(function (p) { return files[p]; })
+        .filter(Boolean);
+      if (!textures.length) return null;
+      const pose = (S.poses && S.poses[spec.modelRef]) || null;
+      return { model: model, textures: textures, pose: pose };
+    }
+
+    function pageFor(p) {
+      if (pages[p]) return pages[p];
+      const count = Math.min(PER_PAGE, ids.length - p * PER_PAGE);
+      const usedRows = Math.max(1, Math.ceil(count / COLS));
+      const canvas = document.createElement('canvas');
+      canvas.width = COLS * CELL;
+      canvas.height = usedRows * CELL;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      pages[p] = { canvas: canvas, ctx: ctx };
+      return pages[p];
+    }
+
+    function loadImage(url) {
+      return new Promise(function (resolve, reject) {
+        const img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { reject(new Error('img decode')); };
+        img.src = url;
+      });
+    }
+
+    // Render sprites [start, end) into their atlas cells. Returns count drawn.
+    window.__renderRange = async function (start, end) {
+      let drawn = 0;
+      for (let i = start; i < end && i < ids.length; i++) {
+        const spec = specFor(ids[i]);
+        if (!spec) continue;
+        let url;
+        try { url = await window.Sprite.render(spec); }
+        catch (e) { continue; }
+        if (!url) continue;
+        const img = await loadImage(url);
+        const p = Math.floor(i / PER_PAGE);
+        const pos = i % PER_PAGE;
+        const col = pos % COLS, row = Math.floor(pos / COLS);
+        const pg = pageFor(p);
+        pg.ctx.drawImage(img, 0, 0, img.width, img.height, col * CELL, row * CELL, CELL, CELL);
+        drawn++;
+      }
+      return drawn;
+    };
+
+    // Export one atlas page as a WebP data URL (alpha-preserving, ~5x smaller
+    // than PNG for these antialiased renders).
+    window.__pagePNG = function (p) {
+      return pages[p] ? pages[p].canvas.toDataURL('image/webp', 0.9) : null;
+    };
+    window.__pageCount = function () { return Math.ceil(ids.length / PER_PAGE); };
+  })();
+  </script>
+</body>
+</html>

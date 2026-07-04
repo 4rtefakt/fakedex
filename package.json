@@ -1,0 +1,12 @@
+{
+  "name": "fakedex",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser Pokédex for Cobblemon fakemon packs",
+  "scripts": {
+    "build:thumbs": "node scripts/build-thumbnails.js"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

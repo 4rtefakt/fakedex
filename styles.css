@@ -270,6 +270,7 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
   opacity: 0; transition: opacity .25s, transform .12s;
 }
 .card-sprite.loaded { opacity: 1; }
+.card-sprite.atlas { max-width: none; max-height: none; flex: 0 0 auto; }
 .card-art-empty { font-size: 40px; color: rgba(255, 255, 255, .12); }
 .dexno { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .card-kind {
