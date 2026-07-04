@@ -32,7 +32,10 @@
       /(^|\/)data\/[^/]+\/moves\/.+\.js(on)?$/.test(n) ||
       /(^|\/)assets\/[^/]+\/lang\/en_us\.json$/.test(n) ||
       (includeSprites &&
-        /(^|\/)assets\/[^/]+\/bedrock\/pokemon\/(models|resolvers|posers|animations)\/.+\.json$/.test(n))
+        // Any bedrock JSON. Covers both the classic layout
+        // (bedrock/pokemon/{models,resolvers,animations}/…) and the newer one
+        // (bedrock/{models,species,animations}/…, bedrock/fossils/…).
+        /(^|\/)assets\/[^/]+\/bedrock\/.+\.json$/.test(n))
     );
   }
 
@@ -282,7 +285,7 @@
     const animByStem = {};    // "magmecko" -> { "animation.magmecko.ground_idle": {...} }
 
     for (const path in files) {
-      let am = path.match(/(^|\/)assets\/[^/]+\/bedrock\/pokemon\/animations\/(.+)\.json$/);
+      let am = path.match(/(^|\/)assets\/[^/]+\/bedrock\/(?:[^/]+\/)*animations\/(.+)\.json$/);
       if (am) {
         try {
           const a = JSON.parse(text(files[path]));
@@ -291,7 +294,7 @@
         } catch (e) { /* skip bad animation */ }
         continue;
       }
-      let m = path.match(/(^|\/)assets\/([^/]+)\/bedrock\/pokemon\/models\/(.+)\.json$/);
+      let m = path.match(/(^|\/)assets\/([^/]+)\/bedrock\/(?:[^/]+\/)*models\/(.+)\.json$/);
       if (m) {
         try {
           const geo = JSON.parse(text(files[path]));
@@ -310,11 +313,14 @@
         } catch (e) { /* skip bad model */ }
         continue;
       }
-      m = path.match(/(^|\/)assets\/[^/]+\/bedrock\/pokemon\/resolvers\/.+\.json$/);
+      // Resolvers live in bedrock/pokemon/resolvers/ (classic), bedrock/species/
+      // (newer) or bedrock/fossils/variations/. The species key is in `species`
+      // (pokemon) or `name` (fossils).
+      m = path.match(/(^|\/)assets\/[^/]+\/bedrock\/(?:[^/]+\/)*(?:resolvers|species|variations)\/.+\.json$/);
       if (m) {
         try {
           const r = JSON.parse(text(files[path]));
-          const key = (r.species || '').split(':').pop().replace(/[^a-z0-9]/g, '');
+          const key = (r.species || r.name || '').split(':').pop().replace(/[^a-z0-9]/g, '');
           if (!resolversBySpecies[key]) resolversBySpecies[key] = [];
           (r.variations || []).forEach(function (v) { resolversBySpecies[key].push(v); });
         } catch (e) { /* skip bad resolver */ }
