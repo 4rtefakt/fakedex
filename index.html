@@ -122,6 +122,25 @@
       <div class="grid" id="grid"></div>
       <p class="empty" id="emptyMsg" hidden>No fakemon match your filters.</p>
     </section>
+
+    <!-- Team builder -->
+    <section id="teamView" class="team-view" hidden>
+      <div class="team-topline">
+        <button id="teamBack" class="back-btn">← Back to dex</button>
+        <div class="team-title">
+          <h2>Team builder</h2>
+          <p class="modal-sub" id="teamSub">Add up to 6 fakemon to analyse type coverage.</p>
+        </div>
+        <div class="team-head-actions">
+          <label class="team-pool-lbl">Suggest from
+            <select id="teamPool"><option value="">All loaded sources</option></select>
+          </label>
+          <button class="ghost" id="teamShare" title="Copy a link to this team">🔗 Share</button>
+          <button class="ghost" id="teamClear" title="Remove all">Clear</button>
+        </div>
+      </div>
+      <div id="teamBody"></div>
+    </section>
   </main>
 
   <!-- Compare tray -->
@@ -141,25 +160,6 @@
         <button class="modal-close" id="compareClose" aria-label="Close">✕</button>
       </div>
       <div class="modal-body" id="compareBody"></div>
-    </div>
-  </div>
-
-  <!-- Team builder modal -->
-  <div id="teamModal" class="modal" hidden>
-    <div class="modal-backdrop" id="teamBackdrop"></div>
-    <div class="modal-panel compare-panel" role="dialog" aria-modal="true">
-      <div class="modal-head">
-        <div>
-          <h2>Team builder</h2>
-          <p class="modal-sub" id="teamSub">Add up to 6 fakemon to analyse type coverage.</p>
-        </div>
-        <div class="team-head-actions">
-          <button class="ghost" id="teamShare" title="Copy a link to this team">🔗 Share</button>
-          <button class="ghost" id="teamClear" title="Remove all">Clear</button>
-          <button class="modal-close" id="teamClose" aria-label="Close">✕</button>
-        </div>
-      </div>
-      <div class="modal-body" id="teamBody"></div>
     </div>
   </div>
 

@@ -594,11 +594,26 @@ a.mv-ext:hover { color: var(--accent-2); }
 .compare-panel { width: min(900px, 96vw); }
 
 /* ---- team builder ---- */
-.team-head-actions { display: flex; align-items: center; gap: 8px; }
+.team-view { max-width: 1100px; margin: 0 auto; }
+.team-topline {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.team-topline .back-btn { margin: 0; }
+.team-title { flex: 1; min-width: 160px; }
+.team-title h2 { margin: 0; font-size: 22px; }
+.team-title .modal-sub { margin: 2px 0 0; }
+.team-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .team-head-actions .ghost { padding: 7px 12px; font-size: 13px; }
+.team-pool-lbl {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px;
+}
+.team-pool-lbl select {
+  padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); font-size: 13px; max-width: 200px;
+}
 .team-members {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
-  padding: 0 22px 6px;
+  padding: 0 0 6px;
 }
 .team-slot {
   position: relative; background: var(--panel); border: 1px solid var(--line);
@@ -614,11 +629,12 @@ a.mv-ext:hover { color: var(--accent-2); }
 }
 .team-remove:hover { background: var(--accent); }
 .team-art { height: 64px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.team-art img { max-height: 64px; max-width: 100%; image-rendering: pixelated; }
+.team-sprite { max-height: 64px; max-width: 100%; image-rendering: pixelated; opacity: 0; transition: opacity .25s; }
+.team-sprite.loaded { opacity: 1; }
 .team-art .ct-ph { font-size: 30px; color: rgba(255,255,255,.12); }
 .team-name { font-weight: 700; font-size: 13px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .team-types { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 5px; }
-.team-block { padding: 14px 22px 4px; }
+.team-block { padding: 18px 0 4px; }
 .team-block h3 {
   font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
   margin: 0 0 10px;
@@ -638,6 +654,38 @@ a.mv-ext:hover { color: var(--accent-2); }
 .tc-nums { font-size: 12px; font-variant-numeric: tabular-nums; }
 .tc-nums .w { color: #f0506e; } .tc-nums .r { color: #4bd47a; } .tc-nums i { color: var(--muted); font-style: normal; margin: 0 1px; }
 .tm-chip.dim { opacity: .8; }
+
+/* team suggestions */
+.sugg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.sugg-card {
+  display: flex; align-items: center; gap: 10px; padding: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+}
+.sugg-art {
+  width: 56px; height: 56px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  background: var(--panel-2); border-radius: 10px; cursor: pointer;
+}
+.sugg-art .ct-ph { font-size: 24px; color: rgba(255,255,255,.12); }
+.sugg-info { flex: 1; min-width: 0; }
+.sugg-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.sugg-name > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sugg-src { color: var(--muted); font-size: 11px; font-weight: 400; flex: 0 0 auto; }
+.sugg-info .team-types { justify-content: flex-start; margin-top: 4px; }
+.sugg-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.sugg-badge {
+  font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+}
+.sugg-badge.res { color: #4bd47a; border-color: color-mix(in srgb, #4bd47a 45%, var(--line)); }
+.sugg-badge.imm { color: #7fd0ff; border-color: color-mix(in srgb, #7fd0ff 45%, var(--line)); }
+.sugg-badge.cov { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 45%, var(--line)); }
+.sugg-add {
+  flex: 0 0 auto; align-self: center; padding: 7px 12px; border-radius: 9px;
+  border: 1px solid var(--accent); background: transparent; color: var(--accent);
+  cursor: pointer; font: inherit; font-weight: 600; font-size: 13px;
+}
+.sugg-add:hover { background: var(--accent); color: #fff; }
+
 .cmp { width: 100%; border-collapse: collapse; }
 .cmp th, .cmp td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--line); }
 .cmp .cmp-lbl { text-align: left; color: var(--muted); font-size: 12px; white-space: nowrap; }
