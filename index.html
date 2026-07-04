@@ -146,15 +146,24 @@
       <div class="modal-head">
         <div>
           <h2>Shared Fakédex</h2>
-          <p class="modal-sub" id="sharedStats">Every fakemon the community has published — search across all packs.</p>
+          <p class="modal-sub" id="sharedStats">Everything the community has published.</p>
         </div>
         <button class="modal-close" id="sharedClose" aria-label="Close">✕</button>
       </div>
-      <div class="modal-controls">
-        <input id="sharedSearch" type="search" placeholder="Search every published fakemon…" autocomplete="off" />
-        <select id="sharedType" aria-label="Filter by type"><option value="">All types</option></select>
+      <div class="modal-tabs">
+        <button id="tabPacks" class="modal-tab active">📦 Packs</button>
+        <button id="tabMons" class="modal-tab">Fakemon</button>
       </div>
-      <div class="modal-body" id="sharedResults"></div>
+      <div id="packsView">
+        <div class="modal-body" id="packsList"></div>
+      </div>
+      <div id="monsView" hidden>
+        <div class="modal-controls">
+          <input id="sharedSearch" type="search" placeholder="Search every published fakemon…" autocomplete="off" />
+          <select id="sharedType" aria-label="Filter by type"><option value="">All types</option></select>
+        </div>
+        <div class="modal-body" id="sharedResults"></div>
+      </div>
     </div>
   </div>
 

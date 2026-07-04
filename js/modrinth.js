@@ -153,5 +153,20 @@
     return out.buffer;
   }
 
-  global.Modrinth = { parseSlug: parseSlug, resolveProject: resolveProject, downloadFile: downloadFile };
+  // Lightweight project lookup (icon/title) for the pack gallery.
+  const _metaCache = {};
+  async function projectMeta(slug) {
+    if (_metaCache[slug]) return _metaCache[slug];
+    try {
+      const p = await getJSON(API + '/project/' + encodeURIComponent(slug));
+      const meta = { title: p.title, iconUrl: p.icon_url || null, slug: p.slug };
+      _metaCache[slug] = meta;
+      return meta;
+    } catch (e) { return null; }
+  }
+
+  global.Modrinth = {
+    parseSlug: parseSlug, resolveProject: resolveProject,
+    downloadFile: downloadFile, projectMeta: projectMeta,
+  };
 })(window);
