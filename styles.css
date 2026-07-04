@@ -200,6 +200,26 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
 .dex-meta strong { color: var(--text); }
 .warn { color: #f0b429; }
 
+.filter-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line);
+}
+.filter-bar label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.filter-bar select {
+  padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); font-size: 13px;
+}
+.filter-bar select:focus, .filter-bar input:focus { outline: 2px solid var(--accent-2); }
+.filter-bar .bst-range input {
+  width: 62px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); font-size: 13px;
+}
+.filter-reset {
+  background: none; border: 1px solid var(--line); color: var(--muted);
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px;
+}
+.filter-reset:hover { color: var(--text); border-color: var(--accent); }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));

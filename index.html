@@ -95,6 +95,24 @@
     <!-- Results -->
     <section id="dexView" class="dex-view" hidden>
       <div class="dex-meta" id="dexMeta"></div>
+      <div class="filter-bar" id="filterBar">
+        <label>Sort
+          <select id="sortSel">
+            <option value="dex">Dex #</option>
+            <option value="name">Name A–Z</option>
+            <option value="bst-desc">BST high→low</option>
+            <option value="bst-asc">BST low→high</option>
+          </select>
+        </label>
+        <label>Gen <select id="genSel"><option value="">All</option></select></label>
+        <label>Egg group <select id="eggSel"><option value="">All</option></select></label>
+        <label class="bst-range">BST
+          <input id="bstMin" type="number" inputmode="numeric" placeholder="min" min="0" />
+          <span>–</span>
+          <input id="bstMax" type="number" inputmode="numeric" placeholder="max" min="0" />
+        </label>
+        <button id="filterReset" class="filter-reset" hidden>Reset</button>
+      </div>
       <div class="grid" id="grid"></div>
       <p class="empty" id="emptyMsg" hidden>No fakemon match your filters.</p>
     </section>
