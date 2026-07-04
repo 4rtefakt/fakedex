@@ -26,10 +26,14 @@
       return 'assets/' + ns + '/bedrock/pokemon/models/' + name + '.json';
     }
 
+    const OG = 144; // per-mon social-preview thumbnail size (twitter summary min)
+
     const S = window.BASE_SPRITES;
     let files = null;
     let ids = [];
-    const pages = {}; // page index -> { canvas, ctx }
+    const pages = {};      // page index -> { canvas, ctx }
+    const og = [];         // global index -> og webp data URL
+    let ogCv = null;       // reused OG canvas
 
     window.__meta = { cell: CELL, cols: COLS, rows: ROWS, perPage: PER_PAGE,
       version: S.assetVersion || S.version };
@@ -100,9 +104,28 @@
         const col = pos % COLS, row = Math.floor(pos / COLS);
         const pg = pageFor(p);
         pg.ctx.drawImage(img, 0, 0, img.width, img.height, col * CELL, row * CELL, CELL, CELL);
+        // Larger standalone thumbnail for the social-preview og:image.
+        if (!ogCv) {
+          ogCv = document.createElement('canvas'); ogCv.width = OG; ogCv.height = OG;
+          const oc = ogCv.getContext('2d');
+          oc.imageSmoothingEnabled = true; oc.imageSmoothingQuality = 'high';
+        }
+        const oc = ogCv.getContext('2d');
+        oc.clearRect(0, 0, OG, OG);
+        oc.drawImage(img, 0, 0, img.width, img.height, 0, 0, OG, OG);
+        og[i] = ogCv.toDataURL('image/webp', 0.72);
         drawn++;
       }
       return drawn;
+    };
+
+    // Return [{ id, webp }] for global indices [start, end) — for the OG files.
+    window.__ogBatch = function (start, end) {
+      const out = [];
+      for (let i = start; i < end && i < ids.length; i++) {
+        if (og[i]) out.push({ id: ids[i], webp: og[i] });
+      }
+      return out;
     };
 
     // Export one atlas page as a WebP data URL (alpha-preserving, ~5x smaller

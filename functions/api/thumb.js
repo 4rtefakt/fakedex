@@ -17,13 +17,19 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const pack = url.searchParams.get('pack');
   const mon = url.searchParams.get('mon');
-  if (!pack || !mon) return bad('Need pack (slug) and mon.');
+  if (!mon) return bad('Need mon.');
   const key = String(mon).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  const row = await db.prepare(
-    'SELECT f.thumb FROM fakemon f JOIN packs p ON p.hash = f.pack_hash ' +
-    'WHERE p.modrinth_slug = ? AND (f.entry_id = ? OR f.name_lower = ?) AND f.thumb IS NOT NULL LIMIT 1'
-  ).bind(pack, mon, key).first();
+  let row;
+  if (pack) {
+    row = await db.prepare(
+      'SELECT f.thumb FROM fakemon f JOIN packs p ON p.hash = f.pack_hash ' +
+      'WHERE p.modrinth_slug = ? AND (f.entry_id = ? OR f.name_lower = ?) AND f.thumb IS NOT NULL LIMIT 1'
+    ).bind(pack, mon, key).first();
+  } else {
+    // No pack → a base Cobblemon mon (seeded into base_thumbs).
+    row = await db.prepare('SELECT thumb FROM base_thumbs WHERE norm = ? LIMIT 1').bind(key).first();
+  }
 
   if (!row || !row.thumb) return new Response('Not found', { status: 404 });
 

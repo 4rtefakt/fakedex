@@ -55,6 +55,13 @@ async function buildMeta(mon, pack, env, origin) {
         if (id.replace(/[^a-z0-9]/g, '') === key) { info = BASE_OG[id]; break; }
       }
     }
+    // Base mons get their preview from a thumbnail seeded into base_thumbs.
+    if (info && !image && env && env.DB) {
+      try {
+        const has = await env.DB.prepare('SELECT 1 FROM base_thumbs WHERE norm = ? LIMIT 1').bind(key).first();
+        if (has) image = (origin || '') + '/api/thumb?mon=' + encodeURIComponent(mon);
+      } catch (e) { /* table may not exist yet — skip image */ }
+    }
   }
   if (!info) return null;
 

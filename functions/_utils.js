@@ -37,6 +37,8 @@ export async function ensureSchema(db) {
     db.prepare('CREATE INDEX IF NOT EXISTS idx_fakemon_type ON fakemon(primary_type, secondary_type)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_fakemon_pack ON fakemon(pack_hash)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_packs_slug ON packs(modrinth_slug)'),
+    // Pre-rendered base Cobblemon thumbnails (seeded), keyed by normalised id.
+    db.prepare('CREATE TABLE IF NOT EXISTS base_thumbs (norm TEXT PRIMARY KEY, thumb TEXT NOT NULL)'),
   ]);
   // Migration for DBs created before the `thumb` column existed (idempotent —
   // ALTER throws "duplicate column" once present, which we swallow).
