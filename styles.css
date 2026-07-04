@@ -248,6 +248,7 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
   padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px;
 }
 .filter-reset:hover { color: var(--text); border-color: var(--accent); }
+.filter-reset.on { color: var(--accent); border-color: var(--accent); }
 
 .grid {
   display: grid;
