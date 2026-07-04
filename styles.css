@@ -433,6 +433,15 @@ a.mv-ext:hover { color: var(--accent-2); }
 
 .muted { color: var(--muted); }
 
+/* ---- drops ---- */
+.drops { display: flex; flex-wrap: wrap; gap: 8px; }
+.drop {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px;
+}
+.drop-item { font-size: 13px; font-weight: 600; }
+.drop-meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
 /* ---- evolution ---- */
 .evo { display: flex; flex-direction: column; gap: 8px; }
 .evo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

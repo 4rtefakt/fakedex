@@ -124,6 +124,21 @@
     return String(name).replace(/[_-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
 
+  // drops: { entries: [{ item, percentage?, quantityRange? }] } -> compact list.
+  function normalizeDrops(d) {
+    if (!d || !Array.isArray(d.entries)) return null;
+    const list = [];
+    d.entries.forEach(function (e) {
+      if (!e || !e.item) return;
+      list.push({
+        item: String(e.item).split(':').pop().replace(/[_-]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }),
+        chance: e.percentage != null ? e.percentage : null,
+        qty: e.quantityRange || null,
+      });
+    });
+    return list.length ? list : null;
+  }
+
   // A form is "distinct" (worth its own dex card) if it changes stats or typing,
   // rather than just aspects/textures (shiny-like colour variants).
   function isDistinctForm(form, base) {
@@ -201,6 +216,7 @@
       evolutions: Array.isArray(obj.evolutions) ? obj.evolutions : [],
       forms: Array.isArray(obj.forms) ? obj.forms.map(function (f) { return f.name; }).filter(Boolean) : [],
       labels: Array.isArray(obj.labels) ? obj.labels : [],
+      drops: normalizeDrops(obj.drops),
       aspects: Array.isArray(obj.aspects) ? obj.aspects : [],
       speciesName: (opts.baseName || obj.name || name).toLowerCase().replace(/[^a-z0-9]/g, ''),
       description: resolveDesc(obj.pokedex, lang),
