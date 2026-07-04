@@ -245,7 +245,14 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
 }
 .card:hover { transform: translateY(-3px); border-color: var(--accent-2); box-shadow: var(--shadow); }
 .card:hover .card-sprite.loaded { transform: scale(1.06); }
-.card-top { display: flex; justify-content: space-between; align-items: center; }
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.card-fav {
+  margin-left: auto; font-size: 15px; line-height: 1; cursor: pointer;
+  color: rgba(255,255,255,.16); transition: color .12s, transform .12s;
+}
+.card-fav:hover { color: #f0b429; transform: scale(1.15); }
+.card-fav.on { color: #f0b429; }
+.card-kind + .card-fav { margin-left: 6px; }
 
 .card-art {
   height: 96px; margin: 4px 0 2px; position: relative;
@@ -476,11 +483,25 @@ a.move-row:hover .mv-ext { opacity: 1; }
 .pub-status { font-size: 12px; }
 .pub-status.ok { color: #63bc5a; }
 
+/* ---- favorites + drawer actions ---- */
+.d-actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.d-fav {
+  background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600;
+}
+.d-fav:hover { border-color: #f0b429; }
+.d-fav.on { border-color: #f0b429; color: #f0b429; background: color-mix(in srgb, #f0b429 14%, var(--panel)); }
+.fav-filter {
+  background: none; border: 1px solid var(--line); color: var(--muted);
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px;
+}
+.fav-filter:hover { color: #f0b429; border-color: #f0b429; }
+.fav-filter.on { color: #f0b429; border-color: #f0b429; background: color-mix(in srgb, #f0b429 14%, var(--panel)); }
+
 /* ---- compare tray + button ---- */
 .d-compare {
   background: var(--panel); border: 1px solid var(--line); color: var(--text);
   padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600;
-  margin-bottom: 16px;
 }
 .d-compare:hover { border-color: var(--accent-2); }
 .d-compare.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }

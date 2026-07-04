@@ -25,7 +25,7 @@
       </div>
     </div>
     <div class="topbar-actions" hidden id="topbarActions">
-      <input id="search" type="search" placeholder="Search name, type, ability, egg group…" autocomplete="off" />
+      <input id="search" type="search" placeholder="Search name, type, ability, egg group, move:flamethrower…" autocomplete="off" />
       <select id="sourceFilter" aria-label="Filter by source"><option value="">All sources</option></select>
       <select id="typeFilter" aria-label="Filter by type"><option value="">All types</option></select>
       <button id="randomBtn" class="ghost" title="Open a random Pokémon">🎲</button>
@@ -111,6 +111,7 @@
           <span>–</span>
           <input id="bstMax" type="number" inputmode="numeric" placeholder="max" min="0" />
         </label>
+        <button id="favFilter" class="fav-filter" title="Show favorites only">★ Favorites</button>
         <button id="filterReset" class="filter-reset" hidden>Reset</button>
       </div>
       <div class="grid" id="grid"></div>
