@@ -33,6 +33,7 @@
       <select id="typeFilter" aria-label="Filter by type"><option value="">All types</option></select>
       <button id="randomBtn" class="ghost" title="Open a random Pokémon">🎲</button>
       <button id="shinyBtn" class="ghost" title="Toggle shiny sprites" aria-pressed="false">✦ Shiny</button>
+      <button id="teamBtn" class="ghost" title="Team builder">🛡 Team</button>
       <button id="sharedBtn" class="ghost" title="Browse the shared community dex" hidden>🌐 Shared dex</button>
       <button id="addPackBtn" class="ghost accent" title="Add a fakemon pack">＋ Add pack</button>
     </div>
@@ -140,6 +141,25 @@
         <button class="modal-close" id="compareClose" aria-label="Close">✕</button>
       </div>
       <div class="modal-body" id="compareBody"></div>
+    </div>
+  </div>
+
+  <!-- Team builder modal -->
+  <div id="teamModal" class="modal" hidden>
+    <div class="modal-backdrop" id="teamBackdrop"></div>
+    <div class="modal-panel compare-panel" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <h2>Team builder</h2>
+          <p class="modal-sub" id="teamSub">Add up to 6 fakemon to analyse type coverage.</p>
+        </div>
+        <div class="team-head-actions">
+          <button class="ghost" id="teamShare" title="Copy a link to this team">🔗 Share</button>
+          <button class="ghost" id="teamClear" title="Remove all">Clear</button>
+          <button class="modal-close" id="teamClose" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div class="modal-body" id="teamBody"></div>
     </div>
   </div>
 
