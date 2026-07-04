@@ -320,6 +320,15 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
   opacity: 0; transition: opacity .3s; pointer-events: none;
 }
 .d-sprite.loaded { opacity: 1; }
+.d-sprite.hidden-by-viewer { display: none; }
+.d-viewer {
+  position: absolute; right: 6px; bottom: -8px; width: 176px; height: 176px;
+  z-index: 2; cursor: grab; touch-action: none;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .35));
+  animation: d-viewer-in .3s ease;
+}
+.d-viewer:active { cursor: grabbing; }
+@keyframes d-viewer-in { from { opacity: 0; } to { opacity: 1; } }
 .d-close {
   position: absolute; top: 14px; right: 14px;
   width: 32px; height: 32px; border-radius: 50%;

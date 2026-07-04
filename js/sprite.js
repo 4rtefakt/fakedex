@@ -53,12 +53,10 @@
     });
   }
 
-  // spec: { model: geoJson, textures: [Uint8Array, ...], yaw?, pitch? }
-  // The first texture is the base; any others are overlaid (emissive layers).
-  async function render(spec) {
-    ensure();
+  // Build the textured model group from a spec. The first texture is the base;
+  // any others are overlaid (emissive layers). Returns a THREE.Group.
+  async function buildTexturedRoot(spec) {
     const THREE = global.THREE;
-
     const texes = [];
     for (const bytes of spec.textures) {
       try { texes.push(await textureFromBytes(bytes)); }
@@ -78,6 +76,15 @@
       const layer = global.Bedrock.buildModel(spec.model, function (g) { return new THREE.Mesh(g, mat); }, spec.pose);
       root.add(layer);
     });
+    return root;
+  }
+
+  // spec: { model: geoJson, textures: [Uint8Array, ...], yaw?, pitch? }
+  async function render(spec) {
+    ensure();
+    const THREE = global.THREE;
+
+    const root = await buildTexturedRoot(spec);
 
     // Face the camera: models are built facing -Z, so yaw 180° brings the front
     // toward +Z where the camera sits. A small extra yaw/pitch gives a 3/4 view.
@@ -107,5 +114,115 @@
     return url;
   }
 
-  global.Sprite = { render: render, SIZE: SIZE };
+  // Live, interactive 3D viewer: auto-spins, drag to rotate, gentle idle bob.
+  // Uses its own renderer/canvas so it never fights the shared sprite baker.
+  // Returns { canvas, dispose } — call dispose() to free the WebGL context.
+  const BASE_YAW = Math.PI;   // front toward +Z (camera side)
+  const BASE_PITCH = 0.12;
+
+  async function createViewer(spec, opts) {
+    const THREE = global.THREE;
+    opts = opts || {};
+    const px = opts.size || 220;
+
+    const root = await buildTexturedRoot(spec);
+
+    // Centre the model at the origin so spins rotate about its middle.
+    const box = new THREE.Box3().setFromObject(root);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    root.position.sub(center);
+
+    const spin = new THREE.Group();
+    spin.rotation.order = 'YXZ';
+    spin.add(root);
+
+    const vScene = new THREE.Scene();
+    vScene.add(spin);
+
+    // Fit an orthographic camera to the bounding sphere so nothing clips at any
+    // rotation. A small bob amplitude is added to the framing headroom.
+    const radius = 0.5 * Math.sqrt(size.x * size.x + size.y * size.y + size.z * size.z) || 16;
+    const bob = size.y * 0.03;
+    const half = radius * 1.02 + bob;
+    const vCam = new THREE.OrthographicCamera(-half, half, half, -half, -1000, 1000);
+    vCam.position.set(0, 0, 200);
+    vCam.lookAt(0, 0, 0);
+
+    const vRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+    vRenderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, 2));
+    vRenderer.setSize(px, px);
+    vRenderer.setClearColor(0x000000, 0);
+    const canvas = vRenderer.domElement;
+
+    let yaw = 0.35, pitch = 0, tick = 0;
+    let dragging = false, lastX = 0, lastY = 0, moved = false, idleAfterDrag = 0;
+    let raf = 0, disposed = false;
+
+    function onDown(e) {
+      dragging = true; moved = false;
+      lastX = e.clientX; lastY = e.clientY;
+      if (canvas.setPointerCapture && e.pointerId != null) {
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+      yaw += dx * 0.012;
+      pitch += dy * 0.012;
+      pitch = Math.max(-1.1, Math.min(1.1, pitch));
+      lastX = e.clientX; lastY = e.clientY;
+      e.preventDefault();
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      idleAfterDrag = moved ? 45 : 0; // pause auto-spin briefly after a drag
+    }
+
+    // Pointer events cover mouse, touch and pen; `touch-action: none` (CSS) keeps
+    // touch drags from scrolling the drawer.
+    canvas.addEventListener('pointerdown', onDown);
+    global.addEventListener('pointermove', onMove);
+    global.addEventListener('pointerup', onUp);
+
+    function draw() {
+      spin.rotation.y = BASE_YAW + yaw;
+      spin.rotation.x = BASE_PITCH + pitch;
+      spin.position.y = Math.sin(tick * 0.045) * bob;
+      vRenderer.render(vScene, vCam);
+    }
+    function frame() {
+      if (disposed) return;
+      tick++;
+      if (!dragging) {
+        if (idleAfterDrag > 0) idleAfterDrag--;
+        else yaw += 0.006; // gentle auto-spin
+      }
+      draw();
+      raf = global.requestAnimationFrame(frame);
+    }
+    draw(); // paint once immediately, before the rAF loop takes over
+    raf = global.requestAnimationFrame(frame);
+
+    function dispose() {
+      if (disposed) return;
+      disposed = true;
+      global.cancelAnimationFrame(raf);
+      canvas.removeEventListener('pointerdown', onDown);
+      global.removeEventListener('pointermove', onMove);
+      global.removeEventListener('pointerup', onUp);
+      disposeGroup(root);
+      vRenderer.dispose();
+      const ext = vRenderer.getContext().getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    }
+
+    return { canvas: canvas, dispose: dispose };
+  }
+
+  global.Sprite = { render: render, createViewer: createViewer, SIZE: SIZE };
 })(window);
