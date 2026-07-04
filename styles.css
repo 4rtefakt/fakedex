@@ -688,8 +688,11 @@ a.mv-ext:hover { color: var(--accent-2); }
 .pack-card {
   display: flex; align-items: center; gap: 11px; padding: 11px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0;
+  transition: border-color .12s, background .12s, transform .12s;
 }
-.pack-card:hover { border-color: var(--accent-2); }
+.pack-card.clickable { cursor: pointer; }
+.pack-card.clickable:hover { border-color: var(--accent); background: var(--panel-2); transform: translateY(-1px); }
+.pack-card.clickable:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .pack-icon {
   width: 46px; height: 46px; flex: 0 0 auto; border-radius: 10px;
   background: var(--panel-2); background-size: cover; background-position: center;
@@ -705,14 +708,8 @@ a.mv-ext:hover { color: var(--accent-2); }
 .pack-meta { color: var(--muted); font-size: 12px; margin-top: 3px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .pack-ver { background: var(--panel-2); border-radius: 5px; padding: 1px 6px; font-size: 11px; }
 .pack-actions { flex: 0 0 auto; display: flex; align-items: stretch; gap: 6px; }
-.pack-load {
-  flex: 0 0 auto; align-self: stretch; padding: 0 14px; border-radius: 9px;
-  border: 1px solid var(--accent); background: transparent; color: var(--accent);
-  cursor: pointer; font: inherit; font-weight: 600; font-size: 13px;
-}
-.pack-load:hover { background: var(--accent); color: #fff; }
 .pack-share {
-  flex: 0 0 auto; width: 34px; border-radius: 9px;
+  flex: 0 0 auto; width: 34px; height: 34px; align-self: center; border-radius: 9px;
   border: 1px solid var(--line); background: transparent; color: var(--muted);
   cursor: pointer; font: inherit; font-size: 14px;
 }
