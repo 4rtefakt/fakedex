@@ -387,8 +387,7 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
 }
 .move-list .move-row:first-child { border-top: none; }
 .move-row:hover { background: var(--panel-2); }
-.move-row.nolink { cursor: default; }
-a.move-row { cursor: pointer; }
+.move-row { cursor: help; }
 
 .mv-lvl { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .mv-cat {
@@ -407,8 +406,10 @@ a.move-row { cursor: pointer; }
 }
 .mv-stats { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mv-sep { opacity: .4; }
-.mv-ext { color: var(--muted); font-size: 11px; text-align: center; opacity: 0; transition: opacity .1s; }
-a.move-row:hover .mv-ext { opacity: 1; }
+.mv-ext { color: var(--muted); font-size: 11px; text-align: center; opacity: 0; transition: opacity .1s; text-decoration: none; }
+a.mv-ext { opacity: .35; }
+.move-row:hover a.mv-ext { opacity: 1; }
+a.mv-ext:hover { color: var(--accent-2); }
 
 /* ---- tooltip ---- */
 .tooltip {
