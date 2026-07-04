@@ -67,8 +67,8 @@ code {
   color: var(--text);
   font-size: 14px;
 }
-#search:focus, #typeFilter:focus, #sourceFilter:focus { outline: 2px solid var(--accent-2); outline-offset: 0; }
-#typeFilter, #sourceFilter {
+#search:focus, #typeFilter:focus, .ms-btn:focus { outline: 2px solid var(--accent-2); outline-offset: 0; }
+#typeFilter {
   padding: 9px 12px;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -77,6 +77,35 @@ code {
   font-size: 14px;
   max-width: 200px;
 }
+
+/* ---- multi-select source filter ---- */
+.ms { position: relative; }
+.ms-btn {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 220px;
+  padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); font-size: 14px; cursor: pointer;
+}
+.ms-btn:hover { background: var(--panel-2); }
+.ms-btn::after { content: '▾'; opacity: .55; flex: 0 0 auto; }
+.ms-btn.active { border-color: #f0b429; color: #f0b429; }
+.ms-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-panel {
+  position: absolute; z-index: 40; top: calc(100% + 6px); left: 0;
+  min-width: 240px; max-width: 320px; max-height: 60vh; overflow-y: auto;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 6px;
+}
+.ms-opt {
+  display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px;
+  background: none; border: none; color: var(--accent-2); cursor: pointer; font: inherit; font-weight: 600;
+}
+.ms-opt:hover { background: var(--panel); }
+.ms-div { height: 1px; background: var(--line); margin: 6px 4px; }
+.ms-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+.ms-row:hover { background: var(--panel); }
+.ms-row input { accent-color: var(--accent); width: 16px; height: 16px; flex: 0 0 auto; margin: 0; }
+.ms-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.ms-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 button.ghost.accent { border-color: var(--accent); color: #fff; background: color-mix(in srgb, var(--accent) 22%, var(--panel)); }
 button.ghost.accent:hover { background: color-mix(in srgb, var(--accent) 34%, var(--panel)); }
 button.ghost {

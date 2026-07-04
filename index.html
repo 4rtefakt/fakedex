@@ -26,7 +26,10 @@
     </div>
     <div class="topbar-actions" hidden id="topbarActions">
       <input id="search" type="search" placeholder="Search name, type, ability, egg group, move:flamethrower…" autocomplete="off" />
-      <select id="sourceFilter" aria-label="Filter by source"><option value="">All sources</option></select>
+      <div class="ms" id="sourceMs">
+        <button type="button" class="ms-btn" id="sourceMsBtn" aria-haspopup="true" aria-expanded="false">All sources</button>
+        <div class="ms-panel" id="sourceMsPanel" hidden></div>
+      </div>
       <select id="typeFilter" aria-label="Filter by type"><option value="">All types</option></select>
       <button id="randomBtn" class="ghost" title="Open a random Pokémon">🎲</button>
       <button id="shinyBtn" class="ghost" title="Toggle shiny sprites" aria-pressed="false">✦ Shiny</button>
