@@ -132,12 +132,19 @@
           <p class="modal-sub" id="teamSub">Add up to 6 fakemon to analyse type coverage.</p>
         </div>
         <div class="team-head-actions">
-          <label class="team-pool-lbl">Suggest from
-            <select id="teamPool"><option value="">All loaded sources</option></select>
-          </label>
+          <div class="team-pool-lbl">Suggest from
+            <div class="ms" id="teamPoolMs">
+              <button type="button" class="ms-btn" id="teamPoolBtn" aria-haspopup="true" aria-expanded="false">All loaded sources</button>
+              <div class="ms-panel" id="teamPoolPanel" hidden></div>
+            </div>
+          </div>
           <button class="ghost" id="teamShare" title="Copy a link to this team">🔗 Share</button>
           <button class="ghost" id="teamClear" title="Remove all">Clear</button>
         </div>
+      </div>
+      <div class="team-search">
+        <input id="teamSearch" type="search" placeholder="Add a fakemon by name…" autocomplete="off" />
+        <div class="team-search-results" id="teamSearchResults" hidden></div>
       </div>
       <div id="teamBody"></div>
     </section>
