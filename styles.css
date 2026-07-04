@@ -393,6 +393,17 @@ main { padding: 22px; max-width: 1240px; margin: 0 auto; }
 .ability em { color: var(--accent); font-style: normal; font-size: 10px; margin-left: 6px; text-transform: uppercase; }
 .hidden-ability { border-color: var(--accent); }
 
+/* type matchups */
+.tm-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.tm-row:last-child { margin-bottom: 0; }
+.tm-lbl { flex: 0 0 66px; color: var(--muted); font-size: 12px; padding-top: 5px; }
+.tm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tm-chip {
+  color: #fff; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  text-shadow: 0 1px 1px rgba(0,0,0,.35);
+}
+.tm-chip b { font-weight: 800; margin-left: 3px; opacity: .95; }
+
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag { background: var(--panel-2); border: 1px solid var(--line); padding: 5px 11px; border-radius: 8px; font-size: 13px; }
 
